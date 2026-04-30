@@ -20,6 +20,10 @@ import { AgentsModule } from './agents/agents.module';
 // Phase 5 — Queue & Publisher
 import { QueueModule } from './queue/queue.module';
 
+// Phase 7 — Storage & Vector
+import { StorageModule } from './storage/storage.module';
+import { VectorModule } from './vector/vector.module';
+
 // Phase 6 — Feature Modules
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -76,6 +80,10 @@ import storageConfig from './config/storage.config';
     // Phase 5 — Queue & Publisher
     QueueModule,
 
+    // Phase 7 — Storage & Vector
+    StorageModule,
+    VectorModule,
+
     // Phase 6 — Feature Modules
     AuthModule,
     UsersModule,
@@ -91,9 +99,6 @@ import storageConfig from './config/storage.config';
     HealthModule,
     WebhooksModule,
 
-    // Phase 7 — Storage & Vector (TODO)
-    // StorageModule,
-    // VectorModule,
   ],
   providers: [
     {
