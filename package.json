@@ -1,0 +1,32 @@
+{
+  "name": "loraloop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Loraloop — Autonomous AI Social Media Management Platform",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "db:migrate": "pnpm --filter @loraloop/api exec prisma migrate dev",
+    "db:generate": "pnpm --filter @loraloop/api exec prisma generate",
+    "db:seed": "pnpm --filter @loraloop/api exec prisma db seed",
+    "db:studio": "pnpm --filter @loraloop/api exec prisma studio",
+    "infra:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
+    "infra:reset": "docker compose -f infra/docker/docker-compose.yml down -v"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

@@ -1,0 +1,616 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm]
+}
+
+// ============================================
+// USERS & SUBSCRIPTIONS
+// ============================================
+
+model User {
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String     @unique @db.VarChar(255)
+  passwordHash        String     @db.VarChar(255)
+  fullName            String?    @db.VarChar(255)
+  avatarUrl           String?
+  timezone            String     @default("UTC") @db.VarChar(50)
+  plan                Plan       @default(FREE)
+  planExpiresAt       DateTime?
+  status              UserStatus @default(ACTIVE)
+  emailVerified       Boolean    @default(false)
+  emailVerifyToken    String?
+  resetPasswordToken  String?
+  resetPasswordExpiry DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  platformConnections  PlatformConnection[]
+  content              Content[]
+  scheduledPosts       ScheduledPost[]
+  publishedPosts       PublishedPost[]
+  engagementItems      EngagementItem[]
+  brandKnowledge       BrandKnowledge?
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  audienceInsights     PlatformAudienceInsights[]
+
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  PRO
+  UNLIMITED
+  ENTERPRISE
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+// ============================================
+// PLATFORM CONNECTIONS (OAuth Tokens)
+// ============================================
+
+model PlatformConnection {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String           @db.Uuid
+  platform            String           @db.VarChar(50)
+  platformUserId      String?          @db.VarChar(255)
+  platformUsername    String?          @db.VarChar(255)
+  platformDisplayName String?          @db.VarChar(255)
+  platformAvatarUrl   String?
+  accessToken         String           // Encrypted at app layer
+  refreshToken        String?          // Encrypted at app layer
+  tokenExpiresAt      DateTime?
+  scopes              String[]         @default([])
+  connectionStatus    ConnectionStatus @default(ACTIVE)
+  metadata            Json             @default("{}")
+  connectedAt         DateTime         @default(now())
+  lastRefreshedAt     DateTime         @default(now())
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPosts   ScheduledPost[]
+  audienceInsights PlatformAudienceInsights?
+
+  @@unique([userId, platform, platformUserId])
+  @@index([userId])
+  @@index([platform])
+  @@index([connectionStatus])
+  @@map("platform_connections")
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ERROR
+}
+
+// ============================================
+// BRAND KNOWLEDGE BASE
+// ============================================
+
+model BrandKnowledge {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String         @unique @db.Uuid
+  brandName            String?        @db.VarChar(255)
+  industry             String?        @db.VarChar(100)
+  targetAudience       String?
+  tone                 String         @default("friendly") @db.VarChar(50)
+  voiceCharacteristics String[]       @default([])
+  prohibitedWords      String[]       @default([])
+  preferredHashtags    String[]       @default([])
+  brandColors          Json           @default("{}")
+  logoUrl              String?
+  websiteUrl           String?
+  productDescription   String?
+  valueProposition     String?
+  contentPillars       String[]       @default([])
+  autoReplyEnabled     Boolean        @default(true)
+  dmHandling           DmHandlingMode @default(HYBRID)
+  sentimentThreshold   Float          @default(-0.5)
+  embeddingVector      Float[]        @default([])
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("brand_knowledge")
+}
+
+enum DmHandlingMode {
+  AUTO
+  MANUAL
+  HYBRID
+}
+
+// ============================================
+// CONTENT
+// ============================================
+
+model Content {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String        @db.Uuid
+  source          ContentSource
+  contentType     ContentType
+  rawContent      Json
+  mediaAssets     Json          @default("[]")
+  targetPlatforms String[]      @default([])
+  tone            String?       @db.VarChar(50)
+  cta             String?
+  hashtags        String[]      @default([])
+  status          ContentStatus @default(DRAFT)
+  agentProcessed   Boolean       @default(false)
+  agentInsights    Json          @default("{}")
+  platformContent  Json          @default("{}")
+  metadata         Json          @default("{}")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPosts ScheduledPost[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([contentType])
+  @@index([createdAt(sort: Desc)])
+  @@map("content")
+}
+
+enum ContentSource {
+  CLARA_AGENT
+  USER_UPLOAD
+  BULK_IMPORT
+  RSS_FEED
+  API
+}
+
+enum ContentType {
+  SOCIAL_POST
+  CAROUSEL
+  STORY
+  REEL
+  VIDEO
+  BLOG
+  THREAD
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISHED
+}
+
+// ============================================
+// SCHEDULED POSTS
+// ============================================
+
+model ScheduledPost {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contentId            String     @db.Uuid
+  userId               String     @db.Uuid
+  platformConnectionId String     @db.Uuid
+  platform             String     @db.VarChar(50)
+  adaptedCaption       String?
+  adaptedMedia         Json       @default("[]")
+  hashtags             String[]   @default([])
+  scheduledAt          DateTime
+  timezone             String     @default("UTC") @db.VarChar(50)
+  status               PostStatus @default(SCHEDULED)
+  publishedAt          DateTime?
+  platformPostId       String?    @db.VarChar(255)
+  platformUrl          String?
+  publishAttempts      Int        @default(0)
+  lastError            String?
+  errorCode            String?    @db.VarChar(50)
+  priority             Int        @default(5)
+  bullJobId            String?    @db.VarChar(255)
+  metadata             Json       @default("{}")
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  content            Content            @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformConnection PlatformConnection @relation(fields: [platformConnectionId], references: [id])
+  publishedPost      PublishedPost?
+
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([platform])
+  @@index([contentId])
+  @@map("scheduled_posts")
+}
+
+enum PostStatus {
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+  PAUSED
+}
+
+// ============================================
+// PUBLISHED POSTS
+// ============================================
+
+model PublishedPost {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheduledPostId      String          @unique @db.Uuid
+  contentId            String?         @db.Uuid
+  userId               String          @db.Uuid
+  platformConnectionId String?         @db.Uuid
+  platform             String          @db.VarChar(50)
+  platformPostId     String          @db.VarChar(255)
+  platformUrl        String?
+  caption            String?
+  mediaUrls          String[]        @default([])
+  hashtags           String[]        @default([])
+  publishedAt        DateTime
+  impressions        Int             @default(0)
+  reach              Int             @default(0)
+  engagementTotal    Int             @default(0)
+  likes              Int             @default(0)
+  comments           Int             @default(0)
+  shares             Int             @default(0)
+  saves              Int             @default(0)
+  clicks             Int             @default(0)
+  videoViews         Int             @default(0)
+  engagementRate     Decimal         @default(0.00) @db.Decimal(6, 3)
+  performanceTier    PerformanceTier @default(MEDIUM)
+  lastAnalyticsFetch DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  scheduledPost   ScheduledPost    @relation(fields: [scheduledPostId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  engagementItems EngagementItem[]
+
+  @@unique([platform, platformPostId])
+  @@index([userId])
+  @@index([platform])
+  @@index([publishedAt(sort: Desc)])
+  @@index([engagementRate(sort: Desc)])
+  @@index([performanceTier])
+  @@map("published_posts")
+}
+
+enum PerformanceTier {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ============================================
+// ENGAGEMENT
+// ============================================
+
+model EngagementItem {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  publishedPostId        String?        @db.Uuid
+  userId                 String         @db.Uuid
+  platform               String         @db.VarChar(50)
+  type                   EngagementType
+  platformEngagementId   String         @db.VarChar(255)
+  platformAuthorId       String?        @db.VarChar(255)
+  platformAuthorUsername String?        @db.VarChar(255)
+  platformAuthorAvatar   String?
+  text                   String?
+  mediaUrl               String?
+  sentiment              Sentiment?
+  sentimentScore         Decimal?       @db.Decimal(4, 3)
+  replied                Boolean        @default(false)
+  replyText              String?
+  replyId                String?        @db.VarChar(255)
+  repliedAt              DateTime?
+  repliedBy              RepliedBy?
+  escalated              Boolean        @default(false)
+  escalationReason       String?        @db.VarChar(100)
+  escalatedAt            DateTime?
+  isRead                 Boolean        @default(false)
+  engagementCreatedAt    DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  publishedPost PublishedPost? @relation(fields: [publishedPostId], references: [id])
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, platformEngagementId])
+  @@index([userId])
+  @@index([publishedPostId])
+  @@index([type])
+  @@index([replied])
+  @@index([sentiment])
+  @@index([isRead])
+  @@index([engagementCreatedAt(sort: Desc)])
+  @@map("engagement_items")
+}
+
+enum EngagementType {
+  COMMENT
+  DM
+  MENTION
+  REPLY
+  REACTION
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum RepliedBy {
+  AI
+  HUMAN
+}
+
+// ============================================
+// SCHEDULING INSIGHTS
+// ============================================
+
+model SchedulingInsight {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @db.Uuid
+  platform          String   @db.VarChar(50)
+  dayOfWeek         Int
+  hourOfDay         Int
+  totalPosts        Int      @default(0)
+  avgEngagementRate Decimal  @default(0.00) @db.Decimal(6, 3)
+  avgImpressions    Int      @default(0)
+  avgClicks         Int      @default(0)
+  confidenceScore   Decimal  @default(0.00) @db.Decimal(4, 3)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, platform, dayOfWeek, hourOfDay])
+  @@index([userId, platform])
+  @@index([avgEngagementRate(sort: Desc)])
+  @@map("scheduling_insights")
+}
+
+// ============================================
+// PLATFORM AUDIENCE INSIGHTS
+// Real-time audience data fetched from each platform every 6 hours.
+// Drives Sarah's scheduling decisions.
+// ============================================
+
+model PlatformAudienceInsights {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connectionId String   @db.Uuid
+  userId       String   @db.Uuid
+  platform     String   @db.VarChar(50)
+
+  // Followers online by hour-of-day: { "0": 320, "1": 280, ..., "23": 1240 }
+  // Keys are UTC hours 0-23, values are avg online follower count
+  hourlyOnlineFollowers Json @default("{}")
+
+  // Avg engagement rate by hour-of-day (from brand's own post history): { "9": 0.068, ... }
+  hourlyEngagementRate Json @default("{}")
+
+  // Day-of-week multiplier from platform native insights: { "0": 0.9, "1": 1.2, ..., "6": 0.7 }
+  // 0 = Sunday, 6 = Saturday
+  dailyEngagementMultiplier Json @default("{}")
+
+  // Platform-reported best times (raw from API, e.g. Instagram Graph API)
+  platformRecommendedTimes Json @default("[]")
+
+  // Current follower / subscriber count
+  followerCount    Int @default(0)
+
+  // Audience demographics summary
+  topAgeRange      String? @db.VarChar(20)
+  topGender        String? @db.VarChar(20)
+  topCountry       String? @db.VarChar(10)
+  topCity          String? @db.VarChar(100)
+
+  // Reach and impression stats for last 30 days
+  avgDailyImpressions Int @default(0)
+  avgDailyReach       Int @default(0)
+  avgEngagementRate   Decimal @default(0.00) @db.Decimal(6, 3)
+
+  // When these insights were last fetched from the platform
+  fetchedAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  connection PlatformConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId])
+  @@index([userId, platform])
+  @@index([fetchedAt(sort: Desc)])
+  @@map("platform_audience_insights")
+}
+
+// ============================================
+// PLATFORM PLUGINS REGISTRY
+// ============================================
+
+model PlatformPlugin {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformName        String       @unique @db.VarChar(50)
+  displayName         String       @db.VarChar(100)
+  pluginVersion       String       @db.VarChar(20)
+  status              PluginStatus @default(ACTIVE)
+  apiBaseUrl          String?
+  authType            String       @db.VarChar(50)
+  requiredScopes      String[]     @default([])
+  supportsPublishing  Boolean      @default(true)
+  supportsScheduling  Boolean      @default(true)
+  supportsAnalytics   Boolean      @default(true)
+  supportsEngagement  Boolean      @default(true)
+  supportsDMs         Boolean      @default(false)
+  maxCaptionLength    Int?
+  maxHashtags         Int?
+  supportedMediaTypes String[]     @default([])
+  maxVideoDurationSec Int?
+  maxFileSizeMb       Int?
+  rateLimitPerHour    Int?
+  rateLimitPerDay     Int?
+  documentationUrl    String?
+  iconUrl             String?
+  metadata            Json         @default("{}")
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([status])
+  @@map("platform_plugins")
+}
+
+enum PluginStatus {
+  ACTIVE
+  DISABLED
+  DEPRECATED
+  BETA
+}
+
+// ============================================
+// TRENDS
+// ============================================
+
+model Trend {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform           String    @db.VarChar(50)
+  trendType          String    @db.VarChar(50)
+  description        String
+  engagementVelocity String    @db.VarChar(20)
+  recommendedAction  String?
+  detectedAt         DateTime  @default(now())
+  expiresAt          DateTime?
+  isActive           Boolean   @default(true)
+  metadata           Json      @default("{}")
+
+  @@index([platform])
+  @@index([isActive])
+  @@index([detectedAt(sort: Desc)])
+  @@map("trends")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  body      String
+  metadata  Json             @default("{}")
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  POST_PUBLISHED
+  POST_FAILED
+  ENGAGEMENT_ESCALATION
+  TREND_ALERT
+  TOKEN_EXPIRED
+  ANALYTICS_REPORT
+  SYSTEM
+}
+
+// ============================================
+// AUDIT LOGS
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String?  @db.VarChar(50)
+  entityId   String?  @db.Uuid
+  platform   String?  @db.VarChar(50)
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ============================================
+// MEDIA ASSETS
+// ============================================
+
+model MediaAsset {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String      @db.Uuid
+  r2Key        String      @unique @db.VarChar(500)
+  r2Url        String
+  mimeType     String      @db.VarChar(100)
+  fileSize     BigInt
+  width        Int?
+  height       Int?
+  duration     Int?
+  altText      String?
+  thumbnailUrl String?
+  status       MediaStatus @default(READY)
+  metadata     Json        @default("{}")
+  createdAt    DateTime    @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@map("media_assets")
+}
+
+enum MediaStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  ERROR
+  DELETED
+}
+
+// ============================================
+// FEATURE FLAGS
+// ============================================
+
+model FeatureFlag {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flagName          String   @unique @db.VarChar(100)
+  enabled           Boolean  @default(false)
+  rolloutPercentage Int      @default(0)
+  userWhitelist     String[] @default([]) @db.Uuid
+  description       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("feature_flags")
+}
