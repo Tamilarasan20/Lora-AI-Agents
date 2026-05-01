@@ -4,14 +4,20 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 
-export interface JwtPayload {
-  sub: string;
+// Supabase JWT payload shape (HS256, role='authenticated')
+export interface SupabaseJwtPayload {
+  sub: string;       // Supabase user UUID
   email: string;
-  plan: string;
+  role: string;      // 'authenticated' | 'anon'
+  aud: string;
+  exp: number;
+  iat: number;
+  user_metadata?: { full_name?: string; avatar_url?: string; name?: string };
 }
 
 export interface AuthUser {
-  id: string;
+  id: string;        // local DB UUID
+  supabaseId: string;
   email: string;
   plan: string;
 }
@@ -25,16 +31,53 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('app.jwt.secret'),
+      // Supabase signs with the project JWT secret (HS256)
+      secretOrKey:
+        config.get<string>('SUPABASE_JWT_SECRET') ||
+        config.get<string>('app.jwt.secret'),
     });
   }
 
-  async validate(payload: JwtPayload): Promise<AuthUser> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, email: true, plan: true, status: true },
+  async validate(payload: SupabaseJwtPayload): Promise<AuthUser> {
+    if (payload.role !== 'authenticated') throw new UnauthorizedException();
+
+    // Sync strategy: look up by supabaseId, fall back to email for migrated records
+    let user = await this.prisma.user.findFirst({
+      where: { OR: [{ supabaseId: payload.sub }, { email: payload.email }] },
+      select: { id: true, supabaseId: true, email: true, plan: true, status: true },
     });
-    if (!user || user.status !== 'ACTIVE') throw new UnauthorizedException();
-    return { id: user.id, email: user.email, plan: user.plan };
+
+    if (!user) {
+      // First login — provision local profile from Supabase token data
+      const meta = payload.user_metadata ?? {};
+      user = await this.prisma.user.create({
+        data: {
+          supabaseId: payload.sub,
+          email: payload.email,
+          fullName: meta.full_name ?? meta.name ?? null,
+          avatarUrl: meta.avatar_url ?? null,
+          emailVerified: true,
+          status: 'ACTIVE',
+          lastLoginAt: new Date(),
+        },
+        select: { id: true, supabaseId: true, email: true, plan: true, status: true },
+      });
+    } else if (!user.supabaseId) {
+      // Existing password-auth user — link to Supabase account
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: { supabaseId: payload.sub, emailVerified: true, lastLoginAt: new Date() },
+        select: { id: true, supabaseId: true, email: true, plan: true, status: true },
+      });
+    } else {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
+
+    if (user.status !== 'ACTIVE') throw new UnauthorizedException('Account suspended');
+
+    return { id: user.id, supabaseId: user.supabaseId!, email: user.email, plan: user.plan };
   }
 }

@@ -42,6 +42,9 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 // Phase 8 — Chat
 import { ChatModule } from './chat/chat.module';
 
+// Phase 11 — Email
+import { EmailModule } from './email/email.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -104,6 +107,9 @@ import storageConfig from './config/storage.config';
 
     // Chat
     ChatModule,
+
+    // Phase 11 — Email
+    EmailModule,
 
   ],
   providers: [

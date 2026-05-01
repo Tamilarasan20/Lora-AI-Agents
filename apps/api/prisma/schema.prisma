@@ -15,8 +15,9 @@ datasource db {
 
 model User {
   id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supabaseId          String?    @unique @db.VarChar(255)  // Supabase auth UUID
   email               String     @unique @db.VarChar(255)
-  passwordHash        String     @db.VarChar(255)
+  passwordHash        String?    @db.VarChar(255)          // nullable — Supabase manages passwords
   fullName            String?    @db.VarChar(255)
   avatarUrl           String?
   timezone            String     @default("UTC") @db.VarChar(50)

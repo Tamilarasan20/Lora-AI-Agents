@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -22,6 +23,7 @@ type FormData = z.infer<typeof schema>;
 export default function RegisterPage() {
   const router = useRouter();
   const { register: registerUser, isLoading } = useAuthStore();
+  const [checkEmail, setCheckEmail] = useState(false);
 
   const { register, handleSubmit, setError, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -30,11 +32,30 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormData) => {
     try {
       await registerUser(data.email, data.password, data.name);
-      router.push('/dashboard');
+      // Supabase sends a confirmation email — show check-email message
+      setCheckEmail(true);
     } catch (err: any) {
-      setError('email', { message: err?.response?.data?.message ?? 'Registration failed' });
+      setError('email', { message: err?.message ?? 'Registration failed' });
     }
   };
+
+  if (checkEmail) {
+    return (
+      <div className="text-center">
+        <div className="text-4xl mb-4">📬</div>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h1>
+        <p className="text-gray-500 text-sm">
+          We sent a confirmation link to your email address. Click it to activate your account.
+        </p>
+        <p className="mt-4 text-sm text-gray-400">
+          Already confirmed?{' '}
+          <button onClick={() => router.push('/login')} className="text-brand-600 hover:underline">
+            Sign in
+          </button>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>

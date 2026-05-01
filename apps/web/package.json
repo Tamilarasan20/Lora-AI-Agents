@@ -13,6 +13,9 @@
     "test:cov": "jest --coverage"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.0",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
     "@tanstack/react-query": "^5.51.1",
     "@tanstack/react-query-devtools": "^5.51.1",
     "axios": "^1.7.2",
@@ -29,8 +32,7 @@
     "socket.io-client": "^4.7.5",
     "tailwind-merge": "^2.4.0",
     "zod": "^3.23.8",
-    "zustand": "^4.5.4",
-    "@hookform/resolvers": "^3.9.0"
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.6",

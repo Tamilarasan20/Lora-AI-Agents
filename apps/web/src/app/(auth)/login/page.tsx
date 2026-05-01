@@ -26,8 +26,8 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
       router.push('/dashboard');
-    } catch {
-      setError('password', { message: 'Invalid email or password' });
+    } catch (err: any) {
+      setError('password', { message: err?.message ?? 'Invalid email or password' });
     }
   };
 
@@ -37,22 +37,10 @@ export default function LoginPage() {
       <p className="text-sm text-gray-500 mb-6">Sign in to your Loraloop account</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input
-          id="email"
-          label="Email"
-          type="email"
-          placeholder="you@example.com"
-          error={errors.email?.message}
-          {...register('email')}
-        />
-        <Input
-          id="password"
-          label="Password"
-          type="password"
-          placeholder="••••••••"
-          error={errors.password?.message}
-          {...register('password')}
-        />
+        <Input id="email" label="Email" type="email" placeholder="you@example.com"
+          error={errors.email?.message} {...register('email')} />
+        <Input id="password" label="Password" type="password" placeholder="••••••••"
+          error={errors.password?.message} {...register('password')} />
 
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-sm text-brand-600 hover:text-brand-700">
