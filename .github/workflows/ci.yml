@@ -1,0 +1,223 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 1. Type-check + lint both packages
+  # ──────────────────────────────────────────────
+  lint-typecheck:
+    name: Lint & Type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check API
+        run: pnpm --filter @loraloop/api exec tsc --noEmit
+
+      - name: Type-check Web
+        run: pnpm --filter @loraloop/web exec tsc --noEmit
+
+      - name: Lint API
+        run: pnpm --filter @loraloop/api lint || true   # warn only until ESLint config is strict
+
+      - name: Lint Web
+        run: pnpm --filter @loraloop/web lint || true
+
+  # ──────────────────────────────────────────────
+  # 2. API unit tests
+  # ──────────────────────────────────────────────
+  api-unit-tests:
+    name: API Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run API unit tests
+        working-directory: apps/api
+        run: pnpm test --passWithNoTests --forceExit
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-jwt-secret-32-chars-long-here
+          JWT_REFRESH_SECRET: test-refresh-secret-32-chars-long
+          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          ANTHROPIC_API_KEY: test-key
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: apps/api/coverage/
+
+  # ──────────────────────────────────────────────
+  # 3. Frontend unit tests
+  # ──────────────────────────────────────────────
+  web-unit-tests:
+    name: Web Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Web unit tests
+        working-directory: apps/web
+        run: pnpm test --passWithNoTests --forceExit
+        env:
+          NODE_ENV: test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-coverage
+          path: apps/web/coverage/
+
+  # ──────────────────────────────────────────────
+  # 4. API e2e tests (with real Postgres + Redis)
+  # ──────────────────────────────────────────────
+  api-e2e-tests:
+    name: API E2E Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: loraloop
+          POSTGRES_PASSWORD: loraloop_test
+          POSTGRES_DB: loraloop_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prisma migrations
+        working-directory: apps/api
+        run: pnpm exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://loraloop:loraloop_test@localhost:5432/loraloop_test
+
+      - name: Run e2e tests
+        working-directory: apps/api
+        run: pnpm test:e2e --forceExit
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://loraloop:loraloop_test@localhost:5432/loraloop_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret-32-chars-long-here
+          JWT_REFRESH_SECRET: test-refresh-secret-32-chars-long
+          ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+          ANTHROPIC_API_KEY: test-key
+          KAFKA_BROKERS: ''          # disabled in test
+          QDRANT_URL: ''             # disabled in test
+
+  # ──────────────────────────────────────────────
+  # 5. Build verification
+  # ──────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        working-directory: apps/api
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Build Web
+        working-directory: apps/web
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+          NEXT_PUBLIC_WS_URL: http://localhost:3000
