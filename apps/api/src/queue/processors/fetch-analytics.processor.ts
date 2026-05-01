@@ -86,6 +86,65 @@ export class FetchAnalyticsProcessor {
         },
       });
 
+      // ── Update SchedulingInsight with a running average for this platform/hour/day ──
+      const publishedHour = publishedPost.publishedAt
+        ? new Date(publishedPost.publishedAt).getUTCHours()
+        : new Date().getUTCHours();
+      const publishedDay = publishedPost.publishedAt
+        ? new Date(publishedPost.publishedAt).getUTCDay()
+        : new Date().getUTCDay();
+
+      const engagementRate = analytics.engagementRate ?? 0;
+
+      // Read existing insight first so we can compute a proper running average
+      const existing = await this.prisma.schedulingInsight.findUnique({
+        where: {
+          userId_platform_hourOfDay_dayOfWeek: {
+            userId,
+            platform,
+            hourOfDay: publishedHour,
+            dayOfWeek: publishedDay,
+          },
+        },
+      });
+
+      if (existing) {
+        const newSampleCount = existing.sampleCount + 1;
+        const newAvgEngagementRate =
+          (Number(existing.avgEngagementRate) * existing.sampleCount + engagementRate) /
+          newSampleCount;
+        const newRecommendedScore = newAvgEngagementRate * 100;
+
+        await this.prisma.schedulingInsight.update({
+          where: {
+            userId_platform_hourOfDay_dayOfWeek: {
+              userId,
+              platform,
+              hourOfDay: publishedHour,
+              dayOfWeek: publishedDay,
+            },
+          },
+          data: {
+            avgEngagementRate: newAvgEngagementRate,
+            sampleCount: newSampleCount,
+            recommendedScore: newRecommendedScore,
+            updatedAt: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.schedulingInsight.create({
+          data: {
+            userId,
+            platform,
+            hourOfDay: publishedHour,
+            dayOfWeek: publishedDay,
+            avgEngagementRate: engagementRate,
+            sampleCount: 1,
+            recommendedScore: engagementRate * 100,
+          },
+        });
+      }
+
       await this.eventBus.emitAnalyticsUpdated({
         payload: {
           publishedPostId,

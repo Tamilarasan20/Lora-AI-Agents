@@ -63,8 +63,40 @@ export class WebhooksService {
 
     const events = payload as Record<string, unknown>;
     if (events.tweet_create_events) {
-      // TODO Phase 9: process mention events
       this.logger.log('Twitter tweet_create_events received');
+
+      const connection = await this.prisma.platformConnection.findFirst({
+        where: { platform: 'twitter', connectionStatus: 'ACTIVE' },
+      });
+
+      for (const tweet of events.tweet_create_events as any[]) {
+        // Skip self-tweets
+        if (connection && tweet.user?.id_str === connection.platformUserId) continue;
+        if (!connection) continue;
+
+        await this.prisma.engagementItem.create({
+          data: {
+            userId: connection.userId,
+            platform: 'twitter',
+            platformItemId: tweet.id_str,
+            type: 'mention',
+            authorId: tweet.user?.id_str ?? '',
+            authorUsername: tweet.user?.screen_name ?? '',
+            text: tweet.text ?? '',
+            sentiment: 'neutral',
+            status: 'PENDING',
+            receivedAt: new Date(),
+          },
+        });
+
+        await this.queue.addJob(QUEUE_NAMES.PROCESS_ENGAGEMENT, JOB_NAMES.PROCESS_MENTION, {
+          platform: 'twitter',
+          type: 'mention',
+          text: tweet.text ?? '',
+          authorUsername: tweet.user?.screen_name ?? '',
+          userId: connection.userId,
+        });
+      }
     }
     return {};
   }
@@ -107,7 +139,34 @@ export class WebhooksService {
   private async processFacebookMessaging(messaging: any): Promise<void> {
     if (messaging.message) {
       this.logger.log(`Facebook DM from ${messaging.sender?.id}`);
-      // TODO Phase 9: create EngagementItem and enqueue for Sarah processing
+
+      const connection = await this.prisma.platformConnection.findFirst({
+        where: { platform: 'facebook', platformUserId: messaging.recipient?.id, connectionStatus: 'ACTIVE' },
+      });
+      if (!connection) return;
+
+      await this.prisma.engagementItem.create({
+        data: {
+          userId: connection.userId,
+          platform: 'facebook',
+          platformItemId: messaging.message?.mid ?? `fb_dm_${Date.now()}`,
+          type: 'dm',
+          authorId: messaging.sender?.id ?? '',
+          authorUsername: messaging.sender?.id ?? '',
+          text: messaging.message?.text ?? '',
+          sentiment: 'neutral',
+          status: 'PENDING',
+          receivedAt: new Date(),
+        },
+      });
+
+      await this.queue.addJob(QUEUE_NAMES.PROCESS_ENGAGEMENT, JOB_NAMES.PROCESS_DM, {
+        platform: 'facebook',
+        type: 'dm',
+        text: messaging.message?.text ?? '',
+        authorUsername: messaging.sender?.id ?? '',
+        userId: connection.userId,
+      });
     }
   }
 }

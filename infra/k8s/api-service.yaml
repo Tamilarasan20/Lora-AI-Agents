@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: loraloop-api
+  namespace: loraloop
+  labels:
+    app: loraloop-api
+spec:
+  type: ClusterIP
+  selector:
+    app: loraloop-api
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      protocol: TCP

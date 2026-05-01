@@ -1,59 +1,23 @@
-# ─────────────────────────────────────────────────
-# Stage: development
-# ─────────────────────────────────────────────────
-FROM node:20-alpine AS development
-
+FROM node:20-alpine AS builder
+RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/ ./packages/
+RUN pnpm install --frozen-lockfile --filter @loraloop/api...
+COPY apps/api ./apps/api
+RUN pnpm --filter @loraloop/api build
+RUN pnpm --filter @loraloop/api prisma generate
 
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
-
-COPY package.json pnpm-lock.yaml* ./
-COPY prisma ./prisma
-
-RUN pnpm install
-
-COPY . .
-
-RUN pnpm exec prisma generate
-
+FROM node:20-alpine AS runner
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
+COPY --from=builder /app/pnpm-workspace.yaml /app/package.json /app/pnpm-lock.yaml ./
+COPY --from=builder /app/apps/api/package.json ./apps/api/
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 EXPOSE 3000
-
-CMD ["pnpm", "dev"]
-
-# ─────────────────────────────────────────────────
-# Stage: build
-# ─────────────────────────────────────────────────
-FROM node:20-alpine AS build
-
-WORKDIR /app
-
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
-
-COPY package.json pnpm-lock.yaml* ./
-COPY prisma ./prisma
-
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-
-RUN pnpm exec prisma generate
-RUN pnpm build
-RUN pnpm prune --prod
-
-# ─────────────────────────────────────────────────
-# Stage: production
-# ─────────────────────────────────────────────────
-FROM node:20-alpine AS production
-
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/package.json ./package.json
-
-EXPOSE 3000
-
+WORKDIR /app/apps/api
 CMD ["node", "dist/main"]

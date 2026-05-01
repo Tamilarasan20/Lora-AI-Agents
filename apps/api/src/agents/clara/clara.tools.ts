@@ -20,13 +20,47 @@ export function buildClaraTools(): ToolDefinition[] {
         required: ['topic', 'platform'],
       },
       handler: async (input) => {
-        // TODO Phase 6: Call real trending hashtag API or vector search against historical performance data
-        const count = (input.count as number) ?? 15;
         const topic = input.topic as string;
-        return {
-          hashtags: Array.from({ length: count }, (_, i) => `#${topic.replace(/\s+/g, '')}${i > 0 ? i : ''}`),
-          note: 'Stub — real implementation uses trending data from platform APIs',
+        const platform = input.platform as string;
+        const count = (input.count as number) ?? 15;
+        const keywords = (input.brandKeywords as string[]) ?? [];
+
+        // Build a smart hashtag set from the topic using word variations
+        const base = topic
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter(Boolean);
+        const brandTags = keywords.map(k => `#${k.replace(/\s+/g, '')}`);
+
+        // Platform-specific strategy
+        const platformLimits: Record<string, number> = {
+          instagram: 30,
+          twitter: 3,
+          linkedin: 5,
+          tiktok: 10,
+          facebook: 5,
         };
+        const maxForPlatform = Math.min(count, platformLimits[platform] ?? 15);
+
+        // Generate compound and single-word hashtags
+        const generated: string[] = [];
+        // Add compound: full topic joined
+        if (base.length > 1) generated.push(`#${base.join('')}`);
+        // Add each word
+        base.forEach(w => { if (w.length > 3) generated.push(`#${w}`); });
+        // Add common engagement tags per platform
+        const engagementTags: Record<string, string[]> = {
+          instagram: ['#instagood', '#photooftheday', '#explorepage', '#reels', '#viral'],
+          twitter: ['#trending', '#viral'],
+          linkedin: ['#business', '#leadership', '#innovation'],
+          tiktok: ['#fyp', '#foryoupage', '#viral', '#trending'],
+          facebook: ['#facebook', '#share'],
+        };
+        const extras = engagementTags[platform] ?? [];
+        const all = [...new Set([...generated, ...brandTags, ...extras])].slice(0, maxForPlatform);
+
+        return { hashtags: all, count: all.length, platform };
       },
     },
     {
@@ -45,13 +79,61 @@ export function buildClaraTools(): ToolDefinition[] {
         required: ['samples', 'brandName'],
       },
       handler: async (input) => {
-        // TODO Phase 4: Embed samples into Qdrant, run similarity clustering, extract patterns via LLM
         const samples = input.samples as string[];
+        const brandName = input.brandName as string;
+
+        // Compute real stats from the samples
+        const avgLength = Math.floor(
+          samples.reduce((s, t) => s + t.length, 0) / (samples.length || 1),
+        );
+        const avgWords = Math.floor(
+          samples.reduce((s, t) => s + t.split(/\s+/).length, 0) / (samples.length || 1),
+        );
+
+        // Detect tone by keyword frequency
+        const text = samples.join(' ').toLowerCase();
+        const toneSignals: Record<string, string[]> = {
+          professional: ['we', 'our', 'team', 'solution', 'strategy', 'results', 'growth'],
+          casual: ['you', 'hey', 'love', 'awesome', 'check out', 'omg', 'lol'],
+          inspirational: ['dream', 'believe', 'inspire', 'journey', 'achieve', 'passion', 'purpose'],
+          educational: ['learn', 'tip', 'how to', 'guide', 'explained', 'understand', 'insight'],
+          witty: ['haha', '😂', 'just saying', 'plot twist', 'ngl', 'hot take'],
+        };
+        let detectedTone = 'professional';
+        let maxScore = 0;
+        for (const [tone, toneKeywords] of Object.entries(toneSignals)) {
+          const score = toneKeywords.filter(k => text.includes(k)).length;
+          if (score > maxScore) { maxScore = score; detectedTone = tone; }
+        }
+
+        // Extract common phrases (2+ word sequences that appear multiple times)
+        const wordPairs: Record<string, number> = {};
+        samples.forEach(s => {
+          const words = s.toLowerCase().split(/\s+/);
+          for (let i = 0; i < words.length - 1; i++) {
+            const pair = `${words[i]} ${words[i + 1]}`;
+            if (pair.length > 6) wordPairs[pair] = (wordPairs[pair] ?? 0) + 1;
+          }
+        });
+        const commonPhrases = Object.entries(wordPairs)
+          .filter(([, c]) => c > 1)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([phrase]) => phrase);
+
+        // Emoji usage
+        const emojiCount = (samples.join('').match(/\p{Emoji}/gu) ?? []).length;
+        const usesEmoji = emojiCount > samples.length * 0.5;
+
         return {
-          averageLength: Math.floor(samples.reduce((sum, s) => sum + s.length, 0) / samples.length),
-          detectedTone: 'professional',
-          commonPhrases: [],
-          note: 'Stub — real implementation uses Qdrant vector analysis',
+          brandName,
+          averageLength: avgLength,
+          averageWordCount: avgWords,
+          detectedTone,
+          commonPhrases,
+          usesEmoji,
+          emojiFrequency: usesEmoji ? 'frequent' : 'minimal',
+          sampleCount: samples.length,
         };
       },
     },

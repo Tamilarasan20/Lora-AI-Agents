@@ -4,12 +4,14 @@ import {
   UnauthorizedException,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
@@ -25,6 +27,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    @Optional() private readonly email: EmailService,
   ) {}
 
   async register(dto: RegisterDto): Promise<TokenPair> {
@@ -44,7 +47,7 @@ export class AuthService {
       },
     });
 
-    // TODO Phase 9: send verification email via NotificationsService
+    this.email?.sendEmailVerification(user.email, user.fullName ?? 'there', emailVerifyToken).catch(() => {});
 
     return this.generateTokens(user.id, user.email, user.plan);
   }
@@ -82,7 +85,7 @@ export class AuthService {
       data: { resetPasswordToken: token, resetPasswordExpiry: expiry },
     });
 
-    // TODO Phase 9: send password reset email via NotificationsService
+    this.email?.sendPasswordReset(user.email, token).catch(() => {});
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
@@ -117,6 +120,43 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: userId },
       data: { onboardingComplete: true },
+    });
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const match = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!match) throw new UnauthorizedException('Current password is incorrect');
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: { fullName?: string; timezone?: string; avatarUrl?: string },
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dto,
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        avatarUrl: true,
+        timezone: true,
+        plan: true,
+        updatedAt: true,
+      },
     });
   }
 

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loraloop-api
+  namespace: loraloop
+  labels:
+    app: loraloop-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: loraloop-api
+  template:
+    metadata:
+      labels:
+        app: loraloop-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/tamilarasan20/loraloop-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: loraloop-api-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10

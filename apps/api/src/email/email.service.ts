@@ -38,6 +38,18 @@ export class EmailService {
     );
   }
 
+  async sendEmailVerification(to: string, name: string, token: string): Promise<void> {
+    const frontendUrl = this.config.get<string>('app.frontendUrl');
+    const link = `${frontendUrl}/auth/verify-email?token=${token}`;
+    await this.send(to, 'Verify your Loraloop email address', this.emailVerificationHtml(name, link));
+  }
+
+  async sendPasswordReset(to: string, token: string): Promise<void> {
+    const frontendUrl = this.config.get<string>('app.frontendUrl');
+    const link = `${frontendUrl}/reset-password?token=${token}`;
+    await this.send(to, 'Reset your Loraloop password', this.passwordResetHtml(link));
+  }
+
   private async send(to: string, subject: string, html: string): Promise<void> {
     if (!this.config.get<string>('app.resend.apiKey')) {
       this.logger.warn(`Email skipped (no RESEND_API_KEY): ${subject} → ${to}`);
@@ -119,6 +131,42 @@ export class EmailService {
   <h1>Your post is live on ${opts.platform}! 🎉</h1>
   <p style="color:#6b7280">It's published and reaching your audience right now.</p>
   <a href="${opts.postUrl}" class="btn">View post →</a>
+</div></body></html>`;
+  }
+
+  private emailVerificationHtml(name: string, link: string): string {
+    return `
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f9fafb; margin:0; padding:40px 0; }
+  .card { background:#fff; max-width:560px; margin:0 auto; border-radius:12px; padding:40px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  h1 { color:#111827; font-size:24px; margin:0 0 8px; }
+  p { color:#6b7280; line-height:1.6; margin:12px 0; }
+  .btn { display:inline-block; background:#4f5eff; color:#fff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600; margin-top:20px; }
+  .note { margin-top:28px; font-size:13px; color:#9ca3af; }
+</style></head>
+<body><div class="card">
+  <h1>Verify your email, ${name}</h1>
+  <p>Thanks for signing up for Loraloop! Please confirm your email address by clicking the button below.</p>
+  <a href="${link}" class="btn">Verify email address →</a>
+  <p class="note">This link expires in 24 hours. If you did not create an account, you can safely ignore this email.</p>
+</div></body></html>`;
+  }
+
+  private passwordResetHtml(link: string): string {
+    return `
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f9fafb; margin:0; padding:40px 0; }
+  .card { background:#fff; max-width:560px; margin:0 auto; border-radius:12px; padding:40px; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  h1 { color:#111827; font-size:24px; margin:0 0 8px; }
+  p { color:#6b7280; line-height:1.6; margin:12px 0; }
+  .btn { display:inline-block; background:#4f5eff; color:#fff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600; margin-top:20px; }
+  .note { margin-top:28px; font-size:13px; color:#9ca3af; }
+</style></head>
+<body><div class="card">
+  <h1>Reset your password</h1>
+  <p>We received a request to reset your Loraloop password. Click the button below to choose a new one.</p>
+  <a href="${link}" class="btn">Reset password →</a>
+  <p class="note">This link expires in 1 hour. If you did not request a password reset, you can safely ignore this email.</p>
 </div></body></html>`;
   }
 }
