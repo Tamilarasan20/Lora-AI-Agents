@@ -1,9 +1,10 @@
 'use client';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Calendar, Inbox, BarChart2,
-  Image, Link2, Palette, Bell, Settings, LogOut, Zap, MessageSquare,
+  Image, Link2, Palette, Bell, Settings, LogOut, Zap, MessageSquare, Menu, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -23,7 +24,7 @@ const NAV = [
   { href: '/notifications', icon: Bell,             label: 'Notifications' },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
@@ -35,9 +36,9 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-64 bg-gray-950 text-white flex flex-col z-40">
+    <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-white/10">
+      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-white/10 flex-shrink-0">
         <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center">
           <Zap className="w-4 h-4 text-white" />
         </div>
@@ -53,6 +54,7 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
+              onClick={onNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                 active
@@ -73,10 +75,13 @@ export function Sidebar() {
       </nav>
 
       {/* User section */}
-      <div className="border-t border-white/10 p-3 space-y-0.5">
-        <Link href="/settings"
+      <div className="border-t border-white/10 p-3 space-y-0.5 flex-shrink-0">
+        <Link
+          href="/settings"
+          onClick={onNavClick}
           className={cn('flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/8 transition-colors',
-            pathname === '/settings' && 'bg-brand-600 text-white')}>
+            pathname === '/settings' && 'bg-brand-600 text-white')}
+        >
           <Settings className="w-4 h-4" />
           <span>Settings</span>
         </Link>
@@ -97,6 +102,56 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+}
+
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-gray-950 text-white flex-col z-40">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 inset-x-0 h-14 bg-gray-950 text-white flex items-center px-4 z-40 border-b border-white/10">
+        <button onClick={() => setMobileOpen(true)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" aria-label="Open menu">
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2 mx-auto">
+          <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center">
+            <Zap className="w-3.5 h-3.5 text-white" />
+          </div>
+          <span className="font-bold text-base tracking-tight">Loraloop</span>
+        </div>
+        <div className="w-8" />
+      </div>
+
+      {/* Mobile drawer overlay */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside className={cn(
+        'md:hidden fixed inset-y-0 left-0 w-72 bg-gray-950 text-white z-50 transition-transform duration-300',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+      )}>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-400"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <SidebarContent onNavClick={() => setMobileOpen(false)} />
+      </aside>
+    </>
   );
 }

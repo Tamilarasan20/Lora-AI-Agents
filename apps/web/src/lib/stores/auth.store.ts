@@ -9,6 +9,7 @@ export interface AuthUser {
   name?: string;
   plan: string;
   avatarUrl?: string;
+  onboardingComplete?: boolean;
 }
 
 interface AuthState {
@@ -76,6 +77,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           name: supabaseUser.user_metadata?.full_name ?? profile.name,
           plan: profile.plan ?? 'FREE',
           avatarUrl: supabaseUser.user_metadata?.avatar_url ?? profile.avatarUrl,
+          onboardingComplete: profile.onboardingComplete ?? true,
         },
         isAuthenticated: true,
       });

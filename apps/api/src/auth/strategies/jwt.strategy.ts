@@ -1,14 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../../email/email.service';
 
-// Supabase JWT payload shape (HS256, role='authenticated')
 export interface SupabaseJwtPayload {
-  sub: string;       // Supabase user UUID
+  sub: string;
   email: string;
-  role: string;      // 'authenticated' | 'anon'
+  role: string;
   aud: string;
   exp: number;
   iat: number;
@@ -16,10 +16,11 @@ export interface SupabaseJwtPayload {
 }
 
 export interface AuthUser {
-  id: string;        // local DB UUID
+  id: string;
   supabaseId: string;
   email: string;
   plan: string;
+  onboardingComplete: boolean;
 }
 
 @Injectable()
@@ -27,11 +28,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly email: EmailService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      // Supabase signs with the project JWT secret (HS256)
       secretOrKey:
         config.get<string>('SUPABASE_JWT_SECRET') ||
         config.get<string>('app.jwt.secret'),
@@ -41,43 +42,52 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: SupabaseJwtPayload): Promise<AuthUser> {
     if (payload.role !== 'authenticated') throw new UnauthorizedException();
 
-    // Sync strategy: look up by supabaseId, fall back to email for migrated records
     let user = await this.prisma.user.findFirst({
       where: { OR: [{ supabaseId: payload.sub }, { email: payload.email }] },
-      select: { id: true, supabaseId: true, email: true, plan: true, status: true },
+      select: { id: true, supabaseId: true, email: true, plan: true, status: true, fullName: true, welcomeEmailSent: true, onboardingComplete: true },
     });
 
     if (!user) {
-      // First login — provision local profile from Supabase token data
       const meta = payload.user_metadata ?? {};
+      const name = meta.full_name ?? meta.name ?? null;
       user = await this.prisma.user.create({
         data: {
           supabaseId: payload.sub,
           email: payload.email,
-          fullName: meta.full_name ?? meta.name ?? null,
+          fullName: name,
           avatarUrl: meta.avatar_url ?? null,
           emailVerified: true,
           status: 'ACTIVE',
+          welcomeEmailSent: false,
           lastLoginAt: new Date(),
         },
-        select: { id: true, supabaseId: true, email: true, plan: true, status: true },
+        select: { id: true, supabaseId: true, email: true, plan: true, status: true, fullName: true, welcomeEmailSent: true, onboardingComplete: true },
       });
+
+      // Fire welcome email asynchronously — don't block the request
+      if (this.email && !user.welcomeEmailSent) {
+        this.email.sendWelcome(user.email, user.fullName ?? 'there').then(() =>
+          this.prisma.user.update({ where: { id: user!.id }, data: { welcomeEmailSent: true } }),
+        ).catch(() => { /* non-fatal */ });
+      }
     } else if (!user.supabaseId) {
-      // Existing password-auth user — link to Supabase account
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: { supabaseId: payload.sub, emailVerified: true, lastLoginAt: new Date() },
-        select: { id: true, supabaseId: true, email: true, plan: true, status: true },
+        select: { id: true, supabaseId: true, email: true, plan: true, status: true, fullName: true, welcomeEmailSent: true, onboardingComplete: true },
       });
     } else {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      });
+      await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     }
 
     if (user.status !== 'ACTIVE') throw new UnauthorizedException('Account suspended');
 
-    return { id: user.id, supabaseId: user.supabaseId!, email: user.email, plan: user.plan };
+    return {
+      id: user.id,
+      supabaseId: user.supabaseId!,
+      email: user.email,
+      plan: user.plan,
+      onboardingComplete: user.onboardingComplete,
+    };
   }
 }

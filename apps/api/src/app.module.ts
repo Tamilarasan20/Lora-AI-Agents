@@ -45,6 +45,9 @@ import { ChatModule } from './chat/chat.module';
 // Phase 11 — Email
 import { EmailModule } from './email/email.module';
 
+// Phase 11 — Billing
+import { BillingModule } from './billing/billing.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -110,6 +113,9 @@ import storageConfig from './config/storage.config';
 
     // Phase 11 — Email
     EmailModule,
+
+    // Phase 11 — Billing
+    BillingModule,
 
   ],
   providers: [

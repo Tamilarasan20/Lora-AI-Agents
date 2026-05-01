@@ -60,7 +60,7 @@ export function useCreateContent() {
       targetPlatforms: string[];
       hashtags?: string[];
       status?: string;
-    }) => api.post<{ content: Content }>('/content', dto),
+    }) => api.post<Content>('/content', dto),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['content'] }),
   });
 }
@@ -68,7 +68,19 @@ export function useCreateContent() {
 export function useUpdateContent(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (dto: Partial<Content>) => api.patch<Content>(`/content/${id}`, dto),
+    mutationFn: (dto: { caption?: string; targetPlatforms?: string[]; tone?: string; hashtags?: string[] }) =>
+      api.patch<Content>(`/content/${id}`, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['content', id] });
+      qc.invalidateQueries({ queryKey: ['content'] });
+    },
+  });
+}
+
+export function useApproveContent(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<Content>(`/content/${id}/approve`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['content', id] });
       qc.invalidateQueries({ queryKey: ['content'] });

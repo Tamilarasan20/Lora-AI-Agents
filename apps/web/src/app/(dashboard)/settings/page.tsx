@@ -1,15 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Save, User, Bell, Shield, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Save, User, Bell, Shield, Trash2, Eye, EyeOff, CreditCard, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useMutation } from '@tanstack/react-query';
+import { useOpenPortal } from '@/lib/hooks/useBilling';
 import api from '@/lib/api';
 
-type Tab = 'account' | 'notifications' | 'security';
+type Tab = 'account' | 'billing' | 'notifications' | 'security';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('account');
@@ -18,11 +20,12 @@ export default function SettingsPage() {
     <>
       <Header title="Settings" />
       <div className="flex-1 p-6 max-w-2xl">
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 w-fit">
+        <div className="flex flex-wrap gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 w-fit">
           {([
-            { key: 'account', label: 'Account', icon: <User className="w-4 h-4" /> },
+            { key: 'account',       label: 'Account',       icon: <User className="w-4 h-4" /> },
+            { key: 'billing',       label: 'Billing',       icon: <CreditCard className="w-4 h-4" /> },
             { key: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-            { key: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
+            { key: 'security',      label: 'Security',      icon: <Shield className="w-4 h-4" /> },
           ] as { key: Tab; label: string; icon: React.ReactNode }[]).map((t) => (
             <button
               key={t.key}
@@ -36,6 +39,7 @@ export default function SettingsPage() {
         </div>
 
         {tab === 'account' && <AccountTab />}
+        {tab === 'billing' && <BillingTab />}
         {tab === 'notifications' && <NotificationsTab />}
         {tab === 'security' && <SecurityTab />}
       </div>
@@ -44,7 +48,7 @@ export default function SettingsPage() {
 }
 
 function AccountTab() {
-  const { user, fetchMe } = useAuthStore();
+  const { user } = useAuthStore();
   const [form, setForm] = useState({ name: '', email: '' });
 
   useEffect(() => {
@@ -53,7 +57,6 @@ function AccountTab() {
 
   const updateProfile = useMutation({
     mutationFn: (data: typeof form) => api.put('/auth/profile', data).then((r) => r.data),
-    onSuccess: () => fetchMe(),
   });
 
   return (
@@ -80,6 +83,55 @@ function AccountTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function BillingTab() {
+  const { user } = useAuthStore();
+  const portal = useOpenPortal();
+
+  const PLAN_LABELS: Record<string, { label: string; color: string }> = {
+    FREE:   { label: 'Free',   color: 'bg-gray-100 text-gray-700' },
+    PRO:    { label: 'Pro',    color: 'bg-brand-100 text-brand-700' },
+    AGENCY: { label: 'Agency', color: 'bg-purple-100 text-purple-700' },
+  };
+
+  const planInfo = PLAN_LABELS[user?.plan ?? 'FREE'] ?? PLAN_LABELS.FREE;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader><h2 className="font-semibold text-gray-900">Current plan</h2></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className={`text-sm font-semibold px-3 py-1 rounded-full ${planInfo.color}`}>
+                {planInfo.label}
+              </span>
+            </div>
+            {user?.plan !== 'FREE' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => portal.mutate(window.location.href)}
+                loading={portal.isPending}
+              >
+                Manage subscription <ExternalLink className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+          {user?.plan === 'FREE' && (
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
+              <p className="text-sm font-medium text-brand-800 mb-1">Upgrade to Pro</p>
+              <p className="text-xs text-brand-600 mb-3">Get 150 posts/month, 100 AI generations, and 5 social accounts.</p>
+              <Link href="/pricing">
+                <Button size="sm">View plans</Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -110,7 +162,7 @@ function NotificationsTab() {
   const ITEMS: { key: keyof NotifSettings; label: string; description: string }[] = [
     { key: 'contentPublished', label: 'Content published', description: 'When a post is published to a platform' },
     { key: 'engagementReceived', label: 'New engagement', description: 'Comments, DMs, and mentions on your posts' },
-    { key: 'aiReplySuggested', label: 'AI reply suggested', description: "When Sarah suggests a reply to engagement" },
+    { key: 'aiReplySuggested', label: 'AI reply suggested', description: 'When Clara suggests a reply to engagement' },
     { key: 'scheduledReminder', label: 'Scheduled post reminder', description: '30 minutes before a scheduled post goes live' },
     { key: 'weeklyReport', label: 'Weekly performance report', description: 'Summary of your analytics every Monday' },
   ];

@@ -113,6 +113,13 @@ export class AuthService {
     });
   }
 
+  async markOnboardingComplete(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardingComplete: true },
+    });
+  }
+
   private generateTokens(userId: string, email: string, plan: string): TokenPair {
     const payload = { sub: userId, email, plan };
     const expiresIn = this.config.get<number>('app.jwt.expiresIn', 900);

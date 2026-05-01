@@ -7,7 +7,7 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { useContentItem, useUpdateContent, useDeleteContent } from '@/lib/hooks/useContent';
+import { useContentItem, useUpdateContent, useApproveContent, useDeleteContent } from '@/lib/hooks/useContent';
 import { PLATFORM_ICONS, STATUS_COLORS, formatDate } from '@/lib/utils';
 
 export default function ContentDetailPage() {
@@ -15,6 +15,7 @@ export default function ContentDetailPage() {
   const router = useRouter();
   const { data: content, isLoading } = useContentItem(id);
   const update = useUpdateContent(id);
+  const approve = useApproveContent(id);
   const remove = useDeleteContent();
   const [activeTab, setActiveTab] = useState<string>('');
 
@@ -36,7 +37,7 @@ export default function ContentDetailPage() {
   const platforms = content.targetPlatforms;
   const currentPlatform = activeTab || platforms[0];
 
-  const handleApprove = () => update.mutate({ status: 'APPROVED' });
+  const handleApprove = () => approve.mutate();
   const handleDelete = async () => {
     if (!confirm('Delete this content?')) return;
     await remove.mutateAsync(id);
@@ -124,7 +125,7 @@ export default function ContentDetailPage() {
 
             <div className="space-y-2">
               {content.status === 'PENDING_REVIEW' && (
-                <Button className="w-full" onClick={handleApprove} loading={update.isPending}>
+                <Button className="w-full" onClick={handleApprove} loading={approve.isPending}>
                   <CheckCircle className="w-4 h-4" /> Approve
                 </Button>
               )}
