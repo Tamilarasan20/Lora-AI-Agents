@@ -20,7 +20,7 @@ const FEATURES = [
   {
     icon: BarChart2,
     title: 'Real-time analytics',
-    description: 'See what's working across every platform. Track reach, engagement, and follower growth.',
+    description: "See what's working across every platform. Track reach, engagement, and follower growth.",
   },
   {
     icon: MessageSquare,

@@ -62,7 +62,7 @@ export default function NewContentPage() {
       status: 'DRAFT',
     });
 
-    router.push(`/content/${res.data?.content?.id ?? ''}`);
+    router.push(`/content/${res.data?.id ?? ''}`);
   };
 
   return (

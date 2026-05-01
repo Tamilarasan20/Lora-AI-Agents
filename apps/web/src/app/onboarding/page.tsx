@@ -32,7 +32,7 @@ export default function OnboardingPage() {
     try {
       const res = await oauthUrl.mutateAsync(platform);
       window.open(res.data.url, '_blank', 'width=600,height=700');
-      setConnected((prev) => [...new Set([...prev, platform])]);
+      setConnected((prev) => Array.from(new Set([...prev, platform])));
     } catch {
       // silently ignore — user may close popup
     }
