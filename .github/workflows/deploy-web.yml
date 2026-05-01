@@ -6,11 +6,15 @@ on:
       - main
     paths:
       - 'apps/web/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
 
 jobs:
   deploy:
     name: Deploy to Vercel
     runs-on: ubuntu-latest
+    # Skip entirely if Vercel secrets aren't configured yet
+    if: ${{ secrets.VERCEL_TOKEN != '' }}
     environment: production
 
     steps:
@@ -19,6 +23,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,7 +33,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: npm install -g vercel@latest
 
       - name: Pull Vercel environment info
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
@@ -35,8 +41,14 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      - name: Build project
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
       - name: Deploy to Vercel
-        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
