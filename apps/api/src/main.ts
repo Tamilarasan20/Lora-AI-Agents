@@ -4,6 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import multipart from '@fastify/multipart';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -19,6 +20,8 @@ async function bootstrap() {
   );
 
   await app.register(multipart, { limits: { fileSize: 500 * 1024 * 1024 } }); // 500 MB
+
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 

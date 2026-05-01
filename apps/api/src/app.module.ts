@@ -39,6 +39,9 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
+// Phase 8 — Chat
+import { ChatModule } from './chat/chat.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -98,6 +101,9 @@ import storageConfig from './config/storage.config';
     NotificationsModule,
     HealthModule,
     WebhooksModule,
+
+    // Chat
+    ChatModule,
 
   ],
   providers: [

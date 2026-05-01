@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Calendar, Inbox, BarChart2,
-  Image, Link2, Palette, Bell, Settings, LogOut, Zap,
+  Image, Link2, Palette, Bell, Settings, LogOut, Zap, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 
 const NAV = [
   { href: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/chat',          icon: MessageSquare,   label: 'Chat with AI' },
   { href: '/content',       icon: FileText,         label: 'Content' },
   { href: '/calendar',      icon: Calendar,         label: 'Calendar' },
   { href: '/engagement',    icon: Inbox,            label: 'Engagement', badge: true },
