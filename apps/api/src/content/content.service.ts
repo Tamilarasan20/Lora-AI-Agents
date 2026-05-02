@@ -22,7 +22,7 @@ export class ContentService {
     const mediaAssets = dto.mediaAssetIds?.length
       ? await this.prisma.mediaAsset.findMany({
           where: { id: { in: dto.mediaAssetIds }, userId },
-          select: { id: true, r2Url: true, mimeType: true, width: true, height: true, fileSizeBytes: true },
+          select: { id: true, r2Url: true, mimeType: true, width: true, height: true, fileSize: true },
         })
       : [];
 
@@ -32,7 +32,7 @@ export class ContentService {
         source: 'USER_UPLOAD',
         contentType: dto.contentType as any,
         rawContent: { caption: dto.caption, cta: dto.cta },
-        mediaAssets: mediaAssets,
+        mediaAssets: mediaAssets as unknown as any,
         targetPlatforms: dto.targetPlatforms,
         tone: dto.tone,
         cta: dto.cta,
@@ -105,7 +105,7 @@ export class ContentService {
         status: 'PENDING_REVIEW',
         agentProcessed: true,
         agentInsights: { tokensUsed: result.tokensUsed, turns: result.turns },
-        platformContent,
+        platformContent: platformContent as unknown as any,
       },
     });
 

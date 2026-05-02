@@ -59,7 +59,6 @@ export class PublisherService {
     const tokens = {
       accessToken: this.encryption.decrypt(connection.accessToken),
       refreshToken: connection.refreshToken ? this.encryption.decrypt(connection.refreshToken) : undefined,
-      openId: connection.openId ?? undefined,
     };
 
     // Get plugin

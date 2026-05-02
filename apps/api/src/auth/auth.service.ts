@@ -57,7 +57,7 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
     if (user.status !== 'ACTIVE') throw new UnauthorizedException('Account suspended');
 
-    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    const valid = await bcrypt.compare(dto.password, user.passwordHash ?? '');
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     await this.prisma.user.update({
@@ -131,7 +131,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const match = await bcrypt.compare(currentPassword, user.passwordHash);
+    const match = await bcrypt.compare(currentPassword, user.passwordHash ?? '');
     if (!match) throw new UnauthorizedException('Current password is incorrect');
 
     const passwordHash = await bcrypt.hash(newPassword, 12);

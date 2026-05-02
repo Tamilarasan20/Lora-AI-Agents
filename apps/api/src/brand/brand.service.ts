@@ -105,12 +105,12 @@ export class BrandService {
 
   async getCompetitors(userId: string): Promise<Competitor[]> {
     const brand = await this.get(userId);
-    return (brand.competitors as Competitor[]) ?? [];
+    return (brand.competitors as unknown as Competitor[]) ?? [];
   }
 
   async addCompetitor(userId: string, platform: string, handle: string): Promise<Competitor> {
     const brand = await this.get(userId);
-    const existing = (brand.competitors as Competitor[]) ?? [];
+    const existing = (brand.competitors as unknown as Competitor[]) ?? [];
 
     const dupe = existing.find(
       (c) => c.platform === platform && c.handle.toLowerCase() === handle.toLowerCase(),
@@ -126,7 +126,7 @@ export class BrandService {
 
     await this.prisma.brandKnowledge.update({
       where: { userId },
-      data: { competitors: [...existing, entry] },
+      data: { competitors: [...existing, entry] as unknown as any },
     });
 
     return entry;
@@ -134,14 +134,14 @@ export class BrandService {
 
   async removeCompetitor(userId: string, competitorId: string): Promise<void> {
     const brand = await this.get(userId);
-    const existing = (brand.competitors as Competitor[]) ?? [];
+    const existing = (brand.competitors as unknown as Competitor[]) ?? [];
     const filtered = existing.filter((c) => c.id !== competitorId);
 
     if (filtered.length === existing.length) throw new NotFoundException('Competitor not found');
 
     await this.prisma.brandKnowledge.update({
       where: { userId },
-      data: { competitors: filtered },
+      data: { competitors: filtered as unknown as any },
     });
   }
 

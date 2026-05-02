@@ -68,8 +68,7 @@ export class MediaService {
         r2Key,
         r2Url: stored.publicUrl,
         mimeType: finalMimeType,
-        originalName: file.originalname,
-        fileSizeBytes: BigInt(processedBuffer.length),
+        fileSize: BigInt(processedBuffer.length),
         width,
         height,
         status: 'READY',
@@ -77,7 +76,7 @@ export class MediaService {
     });
 
     this.logger.log(`Media uploaded: ${r2Key} (${finalMimeType})`);
-    return { ...asset, fileSizeBytes: Number(asset.fileSizeBytes) };
+    return { ...asset, fileSize: Number(asset.fileSize) };
   }
 
   async getPresignedUrl(userId: string, assetId: string, expiresIn = 3600) {
@@ -118,13 +117,12 @@ export class MediaService {
         r2Key: key,
         r2Url: stored.publicUrl,
         mimeType: 'video/mp4',
-        originalName,
-        fileSizeBytes: BigInt(meta?.size ?? 0),
+        fileSize: BigInt(meta?.size ?? 0),
         status: 'READY',
       },
     });
 
-    return { ...asset, fileSizeBytes: Number(asset.fileSizeBytes) };
+    return { ...asset, fileSize: Number(asset.fileSize) };
   }
 
   async listAssets(userId: string, page = 1, limit = 20) {

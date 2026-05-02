@@ -99,7 +99,7 @@ export class FetchAnalyticsProcessor {
       // Read existing insight first so we can compute a proper running average
       const existing = await this.prisma.schedulingInsight.findUnique({
         where: {
-          userId_platform_hourOfDay_dayOfWeek: {
+          userId_platform_dayOfWeek_hourOfDay: {
             userId,
             platform,
             hourOfDay: publishedHour,
@@ -109,15 +109,14 @@ export class FetchAnalyticsProcessor {
       });
 
       if (existing) {
-        const newSampleCount = existing.sampleCount + 1;
+        const newTotalPosts = existing.totalPosts + 1;
         const newAvgEngagementRate =
-          (Number(existing.avgEngagementRate) * existing.sampleCount + engagementRate) /
-          newSampleCount;
-        const newRecommendedScore = newAvgEngagementRate * 100;
+          (Number(existing.avgEngagementRate) * existing.totalPosts + engagementRate) /
+          newTotalPosts;
 
         await this.prisma.schedulingInsight.update({
           where: {
-            userId_platform_hourOfDay_dayOfWeek: {
+            userId_platform_dayOfWeek_hourOfDay: {
               userId,
               platform,
               hourOfDay: publishedHour,
@@ -126,8 +125,8 @@ export class FetchAnalyticsProcessor {
           },
           data: {
             avgEngagementRate: newAvgEngagementRate,
-            sampleCount: newSampleCount,
-            recommendedScore: newRecommendedScore,
+            totalPosts: newTotalPosts,
+            confidenceScore: Math.min(newAvgEngagementRate, 0.999),
             updatedAt: new Date(),
           },
         });
@@ -139,8 +138,8 @@ export class FetchAnalyticsProcessor {
             hourOfDay: publishedHour,
             dayOfWeek: publishedDay,
             avgEngagementRate: engagementRate,
-            sampleCount: 1,
-            recommendedScore: engagementRate * 100,
+            totalPosts: 1,
+            confidenceScore: Math.min(engagementRate, 0.999),
           },
         });
       }

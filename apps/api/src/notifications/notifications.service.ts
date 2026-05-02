@@ -50,7 +50,14 @@ export class NotificationsService {
     type: string; title: string; message: string; metadata?: Record<string, unknown>;
   }) {
     const notification = await this.prisma.notification.create({
-      data: { userId, ...data, isRead: false },
+      data: {
+        userId,
+        type: data.type as any,
+        title: data.title,
+        body: data.message,
+        metadata: (data.metadata ?? {}) as any,
+        isRead: false,
+      },
     });
 
     if (this.gateway) {

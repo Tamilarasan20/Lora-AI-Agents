@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { KafkaMessage } from 'kafkajs';
+import { PerformanceTier } from '@prisma/client';
 import { EventBusService } from '../event-bus.service';
 import { EventHandler } from '../kafka-consumer.service';
 import { KAFKA_TOPICS, AnalyticsUpdatedEvent } from '../event.types';
@@ -24,7 +25,7 @@ export class AnalyticsUpdatedHandler implements OnModuleInit {
     );
 
     const rate = event.payload.metrics.engagementRate ?? 0;
-    const performanceTier = rate >= 0.06 ? 'TOP' : rate >= 0.03 ? 'GOOD' : rate >= 0.01 ? 'AVERAGE' : 'LOW';
+    const performanceTier: PerformanceTier = rate >= 0.03 ? PerformanceTier.HIGH : rate >= 0.01 ? PerformanceTier.MEDIUM : PerformanceTier.LOW;
 
     await this.prisma.publishedPost.update({
       where: { id: event.payload.publishedPostId },
@@ -36,9 +37,8 @@ export class AnalyticsUpdatedHandler implements OnModuleInit {
         shares: event.payload.metrics.shares,
         saves: event.payload.metrics.saves,
         engagementRate: event.payload.metrics.engagementRate,
-        clickThroughRate: (event.payload.metrics as any).clickThroughRate,
         performanceTier,
-        analyticsLastFetchedAt: new Date(),
+        lastAnalyticsFetch: new Date(),
       },
     });
   }

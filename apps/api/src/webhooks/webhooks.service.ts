@@ -78,14 +78,13 @@ export class WebhooksService {
           data: {
             userId: connection.userId,
             platform: 'twitter',
-            platformItemId: tweet.id_str,
-            type: 'mention',
-            authorId: tweet.user?.id_str ?? '',
-            authorUsername: tweet.user?.screen_name ?? '',
+            platformEngagementId: tweet.id_str,
+            type: 'MENTION',
+            platformAuthorId: tweet.user?.id_str ?? '',
+            platformAuthorUsername: tweet.user?.screen_name ?? '',
             text: tweet.text ?? '',
-            sentiment: 'neutral',
-            status: 'PENDING',
-            receivedAt: new Date(),
+            sentiment: 'NEUTRAL',
+            engagementCreatedAt: new Date(),
           },
         });
 
@@ -149,14 +148,13 @@ export class WebhooksService {
         data: {
           userId: connection.userId,
           platform: 'facebook',
-          platformItemId: messaging.message?.mid ?? `fb_dm_${Date.now()}`,
-          type: 'dm',
-          authorId: messaging.sender?.id ?? '',
-          authorUsername: messaging.sender?.id ?? '',
+          platformEngagementId: messaging.message?.mid ?? `fb_dm_${Date.now()}`,
+          type: 'DM',
+          platformAuthorId: messaging.sender?.id ?? '',
+          platformAuthorUsername: messaging.sender?.id ?? '',
           text: messaging.message?.text ?? '',
-          sentiment: 'neutral',
-          status: 'PENDING',
-          receivedAt: new Date(),
+          sentiment: 'NEUTRAL',
+          engagementCreatedAt: new Date(),
         },
       });
 

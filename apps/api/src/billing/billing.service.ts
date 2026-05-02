@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { Plan } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const PLANS = {
@@ -95,7 +96,7 @@ export class BillingService {
 
     await this.prisma.user.updateMany({
       where: { stripeCustomerId: sub.customer as string },
-      data: { plan },
+      data: { plan: plan as Plan },
     });
   }
 
