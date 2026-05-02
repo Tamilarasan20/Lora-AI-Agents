@@ -68,20 +68,39 @@ export default function BrandPage() {
   const [tab, setTab] = useState<Tab>('analyze');
 
   return (
-    <>
+    <div className="min-h-full bg-[#FAFBFC]">
       <Header title="Brand Settings" />
-      <div className="flex-1 p-6 max-w-6xl">
-        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 w-fit flex-wrap">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              {t.icon}
-              {t.label}
-            </button>
-          ))}
+      <div className="mx-auto flex-1 max-w-7xl px-6 py-8">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#DBEAFE] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#2563EB]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Lora Knowledge Base
+            </div>
+            <div>
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Build and manage your brand intelligence</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Analyze your website, generate reusable brand documents, and keep your profile, voice, and competitors in a clean workspace modeled after the latest Loraloop knowledge base experience.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex w-full flex-wrap gap-2 rounded-[24px] border border-[#E5E7EB] bg-white p-2 shadow-[0_18px_40px_rgba(15,23,42,0.04)] lg:w-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
+                  tab === t.key
+                    ? 'bg-[#3B82F6] text-white shadow-[0_12px_30px_rgba(59,130,246,0.22)]'
+                    : 'text-slate-600 hover:bg-[#F8FAFC] hover:text-slate-900'
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tab === 'analyze' && <AnalyzeTab onSuccess={() => setTab('knowledge')} />}
@@ -90,7 +109,7 @@ export default function BrandPage() {
         {tab === 'voice' && <BrandVoiceTab />}
         {tab === 'competitors' && <CompetitorsTab />}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -124,47 +143,80 @@ function AnalyzeTab({ onSuccess }: { onSuccess: () => void }) {
   const result = analyze.data as any;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <h2 className="font-semibold text-gray-900">Build your brand knowledge base</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Paste your website URL and Loraloop will crawl it, extract brand intelligence, and generate reusable knowledge documents.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Input
-                id="analyze-url"
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && analyze.mutate(url.trim())}
-                disabled={analyze.isPending}
-              />
+    <div className="space-y-6">
+      <Card className="overflow-hidden rounded-[28px] border-[#E5E7EB] shadow-[0_22px_60px_rgba(15,23,42,0.06)]">
+        <div className="h-1 w-full bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-[#BFDBFE]" />
+        <CardHeader className="border-b-[#EFF6FF] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FBFF_100%)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#2563EB]">
+                <Sparkles className="h-3.5 w-3.5" />
+                New extraction
+              </div>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">Build your brand knowledge base</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Paste your website URL and Loraloop will crawl it, extract brand intelligence, and generate reusable knowledge documents.
+              </p>
             </div>
-            <Button
-              onClick={() => analyze.mutate(url.trim())}
-              loading={analyze.isPending}
-              disabled={!url.trim() || analyze.isPending}
-            >
-              <Wand2 className="w-4 h-4" />
-              Analyze
-            </Button>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: 'Pages', value: 'Auto crawl' },
+                { label: 'Visuals', value: 'Logo + colors' },
+                { label: 'Voice', value: 'Brand tone' },
+                { label: 'Docs', value: '5 outputs' },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{item.label}</p>
+                  <p className="mt-2 text-sm font-medium text-slate-900">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5 bg-white">
+          <div className="rounded-[24px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1">
+                <Input
+                  id="analyze-url"
+                  placeholder="https://example.com"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && analyze.mutate(url.trim())}
+                  disabled={analyze.isPending}
+                  className="h-12 rounded-2xl border-[#D1D5DB] bg-white px-4 shadow-none focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
+                />
+              </div>
+              <Button
+                onClick={() => analyze.mutate(url.trim())}
+                loading={analyze.isPending}
+                disabled={!url.trim() || analyze.isPending}
+                className="h-12 rounded-2xl bg-[#3B82F6] px-5 hover:bg-[#2563EB] focus:ring-[#3B82F6]"
+              >
+                <Wand2 className="w-4 h-4" />
+                Analyze Website
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 text-sm text-slate-500 md:grid-cols-3">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">Scan public pages, metadata, and messaging cues</div>
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">Extract tone, positioning, colors, and value props</div>
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">Save documents directly to your local knowledge base</div>
           </div>
 
           {analyze.isPending && (
-            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
-                <span className="text-sm font-medium text-brand-700">{STEPS[stepIdx]}</span>
+            <div className="rounded-[24px] border border-[#DBEAFE] bg-[#F8FBFF] p-5">
+              <div className="mb-3 flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-[#2563EB]" />
+                <span className="text-sm font-medium text-[#1D4ED8]">{STEPS[stepIdx]}</span>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-2">
                 {STEPS.map((_, i) => (
                   <div
                     key={i}
-                    className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIdx ? 'bg-brand-500' : 'bg-brand-100'}`}
+                    className={`h-2 flex-1 rounded-full transition-colors ${i <= stepIdx ? 'bg-[#3B82F6]' : 'bg-[#DBEAFE]'}`}
                   />
                 ))}
               </div>
@@ -172,23 +224,23 @@ function AnalyzeTab({ onSuccess }: { onSuccess: () => void }) {
           )}
 
           {analyze.isError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+            <div className="rounded-[24px] border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
               Analysis failed. Please verify the website URL and try again.
             </div>
           )}
 
           {analyze.isSuccess && result && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+            <div className="space-y-4 rounded-[24px] border border-emerald-200 bg-emerald-50/70 p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
                 <CheckCircle2 className="w-5 h-5" />
                 Knowledge base created. Opening the Knowledge Base tab…
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 gap-4 rounded-[20px] border border-white/80 bg-white/80 p-4 text-sm md:grid-cols-2">
                 {result.logoUrl && (
-                  <div className="md:col-span-2 flex items-center gap-3">
+                  <div className="md:col-span-2 flex items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-3">
                     <img src={result.logoUrl} alt="Logo" className="h-10 w-auto object-contain rounded" />
-                    <span className="text-gray-500 text-xs">Logo extracted and saved</span>
+                    <span className="text-xs text-slate-500">Logo extracted and saved</span>
                   </div>
                 )}
                 <LabelValue label="Brand name" value={result.brandName} />
@@ -203,7 +255,7 @@ function AnalyzeTab({ onSuccess }: { onSuccess: () => void }) {
           )}
 
           {!analyze.isPending && !analyze.isSuccess && (
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
               <Globe className="w-3.5 h-3.5" />
               The first pass usually finishes in under a minute, then documents become available in the knowledge base.
             </div>
@@ -233,6 +285,7 @@ function KnowledgeBaseTab() {
   const colors = normalizeBrandColors(brand?.brandColors);
   const competitors = Array.isArray(brand?.competitors) ? brand.competitors : [];
   const pagesScraped = Array.isArray(brand?.pagesScraped) ? brand.pagesScraped : [];
+  const referenceImages = Array.isArray(brand?.referenceImages) ? brand.referenceImages : [];
   const voiceCharacteristics = Array.isArray(brand?.voiceCharacteristics) ? brand.voiceCharacteristics : [];
   const pillars = Array.isArray(brand?.contentPillars) ? brand.contentPillars : [];
   const memoryItems = Array.isArray(memory.data) ? memory.data : [];
@@ -248,7 +301,7 @@ function KnowledgeBaseTab() {
   if (isLoading) return <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard label="Knowledge status" value={brand?.lastValidatedAt ? 'Ready' : 'Pending'} hint={brand?.lastValidatedAt ? formatDateTime(brand.lastValidatedAt) : 'Run AI Analyzer'} />
         <StatCard label="Documents ready" value={`${availableDocs}/5`} hint="Structured markdown assets" />
@@ -257,29 +310,30 @@ function KnowledgeBaseTab() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.9fr] gap-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <Card className="overflow-hidden rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+          <div className="h-1 w-full bg-gradient-to-r from-[#3B82F6] to-[#BFDBFE]" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b-[#EFF6FF]">
             <div>
-              <h2 className="font-semibold text-gray-900">Knowledge documents</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h2 className="font-semibold text-slate-900">Knowledge documents</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
                 Open the reusable brand documents generated from your latest website analysis.
               </p>
             </div>
-            <Button variant="secondary" onClick={handleLoadDocuments} loading={documents.isFetching}>
+            <Button variant="secondary" onClick={handleLoadDocuments} loading={documents.isFetching} className="rounded-2xl bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE]">
               <Download className="w-4 h-4" />
               Refresh docs
             </Button>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {docEntries.map((doc) => (
-              <div key={doc.key} className="rounded-xl border border-gray-200 p-4 bg-gray-50/70">
+              <div key={doc.key} className="rounded-[24px] border border-[#E5E7EB] bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-[#BFDBFE] hover:shadow-[0_18px_40px_rgba(59,130,246,0.12)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                      <FileText className="w-4 h-4 text-brand-600" />
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                      <FileText className="w-4 h-4 text-[#2563EB]" />
                       {doc.label}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="mt-1 text-xs text-slate-500">
                       {doc.url ? 'Ready to download' : 'Not available yet'}
                     </p>
                   </div>
@@ -288,6 +342,7 @@ function KnowledgeBaseTab() {
                     variant={doc.url ? 'outline' : 'ghost'}
                     disabled={!doc.url}
                     onClick={() => doc.url && window.open(doc.url, '_blank')}
+                    className={doc.url ? 'rounded-xl border-[#DBEAFE] text-[#2563EB] hover:bg-[#EFF6FF]' : 'rounded-xl'}
                   >
                     <Download className="w-3.5 h-3.5" />
                     Open
@@ -298,15 +353,16 @@ function KnowledgeBaseTab() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <Card className="overflow-hidden rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+          <div className="h-1 w-full bg-gradient-to-r from-[#2563EB] to-[#93C5FD]" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b-[#EFF6FF]">
             <div>
-              <h2 className="font-semibold text-gray-900">Brand DNA</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h2 className="font-semibold text-slate-900">Brand DNA</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
                 Deeper brand positioning extracted from the knowledge base.
               </p>
             </div>
-            <Button variant="outline" onClick={() => extractDna.mutate()} loading={extractDna.isPending}>
+            <Button variant="outline" onClick={() => extractDna.mutate()} loading={extractDna.isPending} className="rounded-2xl border-[#DBEAFE] text-[#2563EB] hover:bg-[#EFF6FF]">
               <Sparkles className="w-4 h-4" />
               Re-extract
             </Button>
@@ -324,10 +380,10 @@ function KnowledgeBaseTab() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        <Card>
-          <CardHeader>
-            <h2 className="font-semibold text-gray-900">Brand snapshot</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+        <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+          <CardHeader className="border-b-[#EFF6FF]">
+            <h2 className="font-semibold text-slate-900">Brand snapshot</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
               The latest profile currently powering content generation and automation.
             </p>
           </CardHeader>
@@ -368,10 +424,47 @@ function KnowledgeBaseTab() {
         </Card>
 
         <div className="space-y-5">
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">Knowledge memory</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+          <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+            <CardHeader className="border-b-[#EFF6FF]">
+              <h2 className="font-semibold text-slate-900">Scraped image library</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                High-confidence brand images captured during knowledge base generation.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {referenceImages.length ? (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {referenceImages.slice(0, 9).map((image) => (
+                    <a
+                      key={image}
+                      href={image}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group overflow-hidden rounded-[22px] border border-[#E5E7EB] bg-[#FCFDFE]"
+                    >
+                      <div className="aspect-[4/3] overflow-hidden bg-[#F8FAFC]">
+                        <img
+                          src={image}
+                          alt="Scraped brand asset"
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        />
+                      </div>
+                      <div className="border-t border-[#EFF6FF] px-3 py-2 text-[11px] text-slate-500">
+                        Captured reference image
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No reusable brand images captured yet. Run AI Analyzer to scrape visual references.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+            <CardHeader className="border-b-[#EFF6FF]">
+              <h2 className="font-semibold text-slate-900">Knowledge memory</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
                 A short history of detected changes across your brand profile.
               </p>
             </CardHeader>
@@ -381,12 +474,12 @@ function KnowledgeBaseTab() {
               ) : memoryItems.length ? (
                 <div className="space-y-3">
                   {memoryItems.map((item: any) => (
-                    <div key={item.id} className="rounded-xl border border-gray-200 p-3">
+                    <div key={item.id} className="rounded-[22px] border border-[#E5E7EB] bg-[#FCFDFE] p-4">
                       <div className="flex items-center justify-between gap-3 mb-1">
-                        <span className="text-sm font-medium text-gray-900">{humanizeKey(item.changeType ?? item.field)}</span>
-                        <span className="text-xs text-gray-400">{formatDateTime(item.detectedAt)}</span>
+                        <span className="text-sm font-medium text-slate-900">{humanizeKey(item.changeType ?? item.field)}</span>
+                        <span className="text-xs text-slate-400">{formatDateTime(item.detectedAt)}</span>
                       </div>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-slate-600">
                         {truncateText(item.currentValue) || truncateText(item.previousValue) || 'Change detected'}
                       </p>
                     </div>
@@ -398,10 +491,10 @@ function KnowledgeBaseTab() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <h2 className="font-semibold text-gray-900">Validation history</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+          <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+            <CardHeader className="border-b-[#EFF6FF]">
+              <h2 className="font-semibold text-slate-900">Validation history</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
                 Recent audit runs for the brand knowledge base pipeline.
               </p>
             </CardHeader>
@@ -411,16 +504,16 @@ function KnowledgeBaseTab() {
               ) : validationItems.length ? (
                 <div className="space-y-3">
                   {validationItems.slice(0, 5).map((item: any) => (
-                    <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-gray-200 p-3">
+                    <div key={item.id} className="flex items-start justify-between gap-3 rounded-[22px] border border-[#E5E7EB] bg-[#FCFDFE] p-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-slate-900">
                           Score {Math.round((item.overallScore ?? 0) * 100)}%
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="mt-1 text-xs text-slate-500">
                           {item.pagesScraped ?? 0} pages scraped • {item.imagesFound ?? 0} images found
                         </p>
                       </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                      <span className="whitespace-nowrap text-xs text-slate-400">
                         {formatDateTime(item.validatedAt)}
                       </span>
                     </div>
@@ -460,45 +553,50 @@ function BrandProfileTab() {
   if (isLoading) return <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />;
 
   return (
-    <Card>
-      <CardHeader><h2 className="font-semibold text-gray-900">Brand profile</h2></CardHeader>
+    <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+      <CardHeader className="border-b-[#EFF6FF]">
+        <h2 className="font-semibold text-slate-900">Brand profile</h2>
+        <p className="mt-0.5 text-sm text-slate-500">Edit the core details that power your brand profile and knowledge outputs.</p>
+      </CardHeader>
       <CardContent className="space-y-4">
         <Input
           id="brand-name"
           label="Brand name"
           value={form.brandName}
           onChange={(e) => setForm((f) => ({ ...f, brandName: e.target.value }))}
+          className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
         />
-        <Input id="brand-website" label="Website" value={data?.websiteUrl ?? ''} disabled />
+        <Input id="brand-website" label="Website" value={data?.websiteUrl ?? ''} disabled className="rounded-2xl border-[#E5E7EB] bg-[#F8FAFC]" />
         <Input
           id="brand-industry"
           label="Industry"
           placeholder="e.g. Fashion & Apparel"
           value={form.industry}
           onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
+          className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
         />
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Product description</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Product description</label>
           <textarea
             rows={3}
             value={form.brandDescription}
             onChange={(e) => setForm((f) => ({ ...f, brandDescription: e.target.value }))}
             placeholder="What does your brand do? What makes it unique?"
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+            className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Target audience</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Target audience</label>
           <textarea
             rows={2}
             value={form.targetAudience}
             onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value }))}
             placeholder="Who are your customers? Age, interests, pain points…"
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+            className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
           />
         </div>
         <div className="flex justify-end pt-2">
-          <Button onClick={() => update.mutate(form)} loading={update.isPending}>
+          <Button onClick={() => update.mutate(form)} loading={update.isPending} className="rounded-2xl bg-[#3B82F6] px-5 hover:bg-[#2563EB] focus:ring-[#3B82F6]">
             <Save className="w-4 h-4" />
             Save changes
           </Button>
@@ -543,16 +641,19 @@ function BrandVoiceTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader><h2 className="font-semibold text-gray-900">Tone of voice</h2></CardHeader>
+      <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <CardHeader className="border-b-[#EFF6FF]">
+          <h2 className="font-semibold text-slate-900">Tone of voice</h2>
+          <p className="mt-0.5 text-sm text-slate-500">Define how your AI agents should sound and what they should prioritize.</p>
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Primary tone</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Primary tone</label>
               <select
                 value={form.tone}
                 onChange={(e) => setForm((f) => ({ ...f, tone: e.target.value }))}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="block w-full rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
               >
                 {TONE_OPTIONS.map((tone) => (
                   <option key={tone} value={tone}>{tone}</option>
@@ -560,40 +661,41 @@ function BrandVoiceTab() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Voice characteristics</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Voice characteristics</label>
               <Input
                 id="voice-characteristics"
                 placeholder="clear, helpful, premium"
                 value={characteristicsText}
                 onChange={(e) => setCharacteristicsText(e.target.value)}
+                className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Value proposition</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Value proposition</label>
             <textarea
               rows={3}
               value={form.valueProposition}
               onChange={(e) => setForm((f) => ({ ...f, valueProposition: e.target.value }))}
               placeholder="The core promise your brand delivers"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Brand description for AI</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Brand description for AI</label>
             <textarea
               rows={4}
               value={form.brandDescription}
               onChange={(e) => setForm((f) => ({ ...f, brandDescription: e.target.value }))}
               placeholder="Describe the brand in a way your AI agents should understand and reuse"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
+            <label className="flex items-start gap-3 rounded-[24px] border border-[#E5E7EB] bg-[#FCFDFE] p-4">
               <input
                 type="checkbox"
                 checked={form.autoReplyEnabled}
@@ -601,13 +703,13 @@ function BrandVoiceTab() {
                 className="mt-1"
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">Allow AI auto-replies</p>
-                <p className="text-xs text-gray-500 mt-1">Keep this on if Sarah should reply automatically when sentiment is safe.</p>
+                <p className="text-sm font-medium text-slate-900">Allow AI auto-replies</p>
+                <p className="mt-1 text-xs text-slate-500">Keep this on if Sarah should reply automatically when sentiment is safe.</p>
               </div>
             </label>
 
-            <div className="rounded-xl border border-gray-200 p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Sentiment threshold</label>
+            <div className="rounded-[24px] border border-[#E5E7EB] bg-[#FCFDFE] p-4">
+              <label className="mb-2 block text-sm font-medium text-slate-700">Sentiment threshold</label>
               <Input
                 id="sentiment-threshold"
                 type="number"
@@ -616,8 +718,9 @@ function BrandVoiceTab() {
                 max="1"
                 value={String(form.sentimentThreshold)}
                 onChange={(e) => setForm((f) => ({ ...f, sentimentThreshold: Number(e.target.value) }))}
+                className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
               />
-              <p className="text-xs text-gray-500 mt-2">Lower values are more permissive. Typical range: `-1` to `1`.</p>
+              <p className="mt-2 text-xs text-slate-500">Lower values are more permissive. Typical range: `-1` to `1`.</p>
             </div>
           </div>
 
@@ -625,6 +728,7 @@ function BrandVoiceTab() {
             <Button
               onClick={() => update.mutate({ ...form, voiceCharacteristics })}
               loading={update.isPending}
+              className="rounded-2xl bg-[#3B82F6] px-5 hover:bg-[#2563EB] focus:ring-[#3B82F6]"
             >
               <Save className="w-4 h-4" />
               Save voice settings
@@ -653,18 +757,21 @@ function CompetitorsTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader><h2 className="font-semibold text-gray-900">Track competitors</h2></CardHeader>
+      <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <CardHeader className="border-b-[#EFF6FF]">
+          <h2 className="font-semibold text-slate-900">Track competitors</h2>
+          <p className="mt-0.5 text-sm text-slate-500">Keep a focused watchlist so your knowledge base can compare positioning and content patterns.</p>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-500">
             Mark AI monitors these accounts and uses their content patterns to help you stay competitive.
           </p>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <select
               value={newPlatform}
               onChange={(e) => setNewPlatform(e.target.value)}
-              className="pl-3 pr-8 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
             >
               {PLATFORMS_LIST.map((platform) => (
                 <option key={platform} value={platform}>{PLATFORM_ICONS[platform]} {platform}</option>
@@ -675,9 +782,9 @@ function CompetitorsTab() {
               onChange={(e) => setNewHandle(e.target.value)}
               placeholder="@username"
               onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-              className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="flex-1 rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]"
             />
-            <Button onClick={handleAdd} loading={addCompetitor.isPending} disabled={!newHandle.trim()}>
+            <Button onClick={handleAdd} loading={addCompetitor.isPending} disabled={!newHandle.trim()} className="rounded-2xl bg-[#3B82F6] px-5 hover:bg-[#2563EB] focus:ring-[#3B82F6]">
               <Plus className="w-4 h-4" />
               Add
             </Button>
@@ -694,15 +801,15 @@ function CompetitorsTab() {
           ) : (
             <div className="space-y-2">
               {(competitors ?? []).map((competitor: any) => (
-                <div key={competitor.id} className="flex items-center gap-3 px-3 py-2.5 bg-gray-50 rounded-lg">
+                <div key={competitor.id} className="flex items-center gap-3 rounded-[22px] border border-[#E5E7EB] bg-[#FCFDFE] px-4 py-3">
                   <span className="text-lg">{PLATFORM_ICONS[competitor.platform] ?? '🌐'}</span>
                   <div className="flex-1">
-                    <span className="text-sm font-medium text-gray-900">@{competitor.handle}</span>
-                    <span className="ml-2 text-xs text-gray-400 capitalize">{competitor.platform}</span>
+                    <span className="text-sm font-medium text-slate-900">@{competitor.handle}</span>
+                    <span className="ml-2 text-xs capitalize text-slate-400">{competitor.platform}</span>
                   </div>
                   <button
                     onClick={() => removeCompetitor.mutate(competitor.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
+                    className="text-slate-400 transition-colors hover:text-red-500"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -718,10 +825,10 @@ function CompetitorsTab() {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
-    <Card className="p-4">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-      <p className="text-xs text-gray-400 mt-1">{hint}</p>
+    <Card className="rounded-[24px] border-[#E5E7EB] p-5 shadow-[0_14px_30px_rgba(15,23,42,0.04)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{hint}</p>
     </Card>
   );
 }
@@ -729,18 +836,18 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint: 
 function LabelValue({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
-    <div>
-      <span className="text-gray-500 font-medium">{label}: </span>
-      <span className="text-gray-800">{value}</span>
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3">
+      <span className="font-medium text-slate-500">{label}: </span>
+      <span className="text-slate-800">{value}</span>
     </div>
   );
 }
 
 function InfoBlock({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="text-sm text-gray-900 mt-1">{value || 'Not available yet'}</p>
+    <div className="rounded-[22px] border border-[#E5E7EB] bg-[#FCFDFE] px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-900">{value || 'Not available yet'}</p>
     </div>
   );
 }
@@ -749,11 +856,11 @@ function TagList({ title, items, emptyLabel }: { title: string; items?: string[]
   const safeItems = items ?? [];
   return (
     <div>
-      <h3 className="text-sm font-medium text-gray-700 mb-2">{title}</h3>
+      <h3 className="mb-2 text-sm font-medium text-slate-700">{title}</h3>
       {safeItems.length ? (
         <div className="flex flex-wrap gap-2">
           {safeItems.map((item) => (
-            <span key={item} className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+            <span key={item} className="inline-flex items-center rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#2563EB]">
               {item}
             </span>
           ))}
@@ -780,22 +887,22 @@ function ColorSection({
 
   return (
     <div>
-      <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-        <Palette className="w-4 h-4 text-brand-600" />
+      <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+        <Palette className="w-4 h-4 text-[#2563EB]" />
         Visual identity
       </h3>
       {logoUrl && (
-        <div className="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+        <div className="mb-3 rounded-[22px] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
           <img src={logoUrl} alt="Brand logo" className="h-12 w-auto object-contain" />
         </div>
       )}
       {swatches.length ? (
         <div className="grid grid-cols-2 gap-2">
           {swatches.map((swatch) => (
-            <div key={`${swatch.name}-${swatch.value}`} className="rounded-xl border border-gray-200 p-2">
+            <div key={`${swatch.name}-${swatch.value}`} className="rounded-[20px] border border-[#E5E7EB] p-3">
               <div className="h-10 rounded-lg border border-black/5" style={{ backgroundColor: swatch.value }} />
-              <p className="text-xs font-medium text-gray-700 mt-2">{swatch.name}</p>
-              <p className="text-xs text-gray-400">{swatch.value}</p>
+              <p className="mt-2 text-xs font-medium text-slate-700">{swatch.name}</p>
+              <p className="text-xs text-slate-400">{swatch.value}</p>
             </div>
           ))}
         </div>

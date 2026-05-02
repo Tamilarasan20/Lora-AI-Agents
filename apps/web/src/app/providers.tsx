@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
 const ONBOARDING_PATH = '/onboarding';
@@ -15,6 +15,11 @@ function AuthSync({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      reset();
+      return undefined;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) syncFromSupabase(session.user);
     });

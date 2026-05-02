@@ -55,6 +55,7 @@ export interface BrandProfileRecord {
   };
   competitors: CompetitorRecord[];
   logoUrl?: string;
+  referenceImages?: string[];
   productDescription: string;
   valueProposition: string;
   contentPillars: string[];
