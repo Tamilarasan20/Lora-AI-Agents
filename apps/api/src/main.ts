@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Readable } from 'stream';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { FastifyInstance } from 'fastify';
@@ -53,14 +54,24 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  // Attach rawBody on the Stripe webhook route for signature verification
+  // Capture raw bytes for the Stripe webhook BEFORE Fastify's JSON parser runs.
+  // preParsing fires before body parsing so we can read the stream and replay it.
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
-  fastify.addHook('preHandler', async (req: any) => {
-    if (req.url === '/v1/billing/webhook') {
-      (req as any).rawBody = Buffer.isBuffer(req.body)
-        ? req.body
-        : Buffer.from(JSON.stringify(req.body ?? ''));
+  fastify.addHook('preParsing', async (req: any, _reply: any, payload: any) => {
+    if (req.url?.startsWith('/v1/billing/webhook')) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of payload as AsyncIterable<Buffer>) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      const rawBody = Buffer.concat(chunks);
+      req.rawBody = rawBody;
+      // Return a fresh readable so the normal JSON parser still runs
+      const replay = new Readable({ read() {} });
+      replay.push(rawBody);
+      replay.push(null);
+      return replay;
     }
+    return payload;
   });
 
   const port = Number(process.env.PORT) || 3000;

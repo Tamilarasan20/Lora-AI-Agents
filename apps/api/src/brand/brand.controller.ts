@@ -1,6 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body, Controller, Delete, Get, Param, Patch, Post, Put,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsString } from 'class-validator';
+import { IsArray, IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { BrandService } from './brand.service';
 import { UpdateBrandDto } from './dto/update-brand.dto';
@@ -14,6 +16,20 @@ class StringArrayDto {
   items: string[];
 }
 
+class UpdateVoiceDto {
+  @ApiProperty({ required: false }) @IsOptional() @IsString()  tone?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsArray()   voiceCharacteristics?: string[];
+  @ApiProperty({ required: false }) @IsOptional() @IsString()  brandDescription?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsString()  valueProposition?: string;
+  @ApiProperty({ required: false }) @IsOptional() @IsBoolean() autoReplyEnabled?: boolean;
+  @ApiProperty({ required: false }) @IsOptional() @IsNumber()  sentimentThreshold?: number;
+}
+
+class AddCompetitorDto {
+  @ApiProperty() @IsString() platform: string;
+  @ApiProperty() @IsString() handle: string;
+}
+
 @ApiTags('Brand')
 @ApiBearerAuth()
 @Controller('brand')
@@ -21,16 +37,58 @@ export class BrandController {
   constructor(private readonly brandService: BrandService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get brand knowledge profile' })
+  @ApiOperation({ summary: 'Get full brand knowledge profile' })
   get(@CurrentUser() user: AuthUser) {
     return this.brandService.get(user.id);
   }
 
   @Patch()
-  @ApiOperation({ summary: 'Update brand voice, tone, prohibited words, hashtags, content pillars' })
+  @ApiOperation({ summary: 'Update brand profile fields' })
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateBrandDto) {
     return this.brandService.update(user.id, dto);
   }
+
+  @Put()
+  @ApiOperation({ summary: 'Replace brand profile fields (alias for PATCH)' })
+  replace(@CurrentUser() user: AuthUser, @Body() dto: UpdateBrandDto) {
+    return this.brandService.update(user.id, dto);
+  }
+
+  // ── Voice ──────────────────────────────────────────────────────────────────
+
+  @Get('voice')
+  @ApiOperation({ summary: 'Get brand voice settings' })
+  getVoice(@CurrentUser() user: AuthUser) {
+    return this.brandService.getVoice(user.id);
+  }
+
+  @Put('voice')
+  @ApiOperation({ summary: 'Update brand voice settings' })
+  updateVoice(@CurrentUser() user: AuthUser, @Body() dto: UpdateVoiceDto) {
+    return this.brandService.updateVoice(user.id, dto);
+  }
+
+  // ── Competitors ────────────────────────────────────────────────────────────
+
+  @Get('competitors')
+  @ApiOperation({ summary: 'List tracked competitors' })
+  getCompetitors(@CurrentUser() user: AuthUser) {
+    return this.brandService.getCompetitors(user.id);
+  }
+
+  @Post('competitors')
+  @ApiOperation({ summary: 'Add a competitor to track' })
+  addCompetitor(@CurrentUser() user: AuthUser, @Body() dto: AddCompetitorDto) {
+    return this.brandService.addCompetitor(user.id, dto.platform, dto.handle);
+  }
+
+  @Delete('competitors/:id')
+  @ApiOperation({ summary: 'Remove a tracked competitor' })
+  removeCompetitor(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.brandService.removeCompetitor(user.id, id);
+  }
+
+  // ── Hashtags / Prohibited ──────────────────────────────────────────────────
 
   @Post('hashtags')
   @ApiOperation({ summary: 'Add hashtags to preferred list' })

@@ -1,7 +1,11 @@
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { ToolDefinition } from '../base-agent';
 
-export function buildSarahTools(prisma: PrismaService): ToolDefinition[] {
+export function buildSarahTools(
+  prisma: PrismaService,
+  notifications?: NotificationsService,
+): ToolDefinition[] {
   return [
     {
       name: 'get_optimal_posting_time',
@@ -264,8 +268,31 @@ export function buildSarahTools(prisma: PrismaService): ToolDefinition[] {
         required: ['engagementItemId', 'reason', 'urgency'],
       },
       handler: async (input) => {
-        // TODO Phase 6: Insert Notification record; send Slack/email alert
-        return { escalated: true, engagementItemId: input.engagementItemId, urgency: input.urgency };
+        const { engagementItemId, reason, urgency, platform, summary } = input as {
+          engagementItemId: string;
+          reason: string;
+          urgency: 'low' | 'medium' | 'high' | 'critical';
+          platform?: string;
+          summary?: string;
+        };
+
+        // Look up which user owns this engagement item so we can target the notification
+        const item = await prisma.engagementItem.findUnique({
+          where: { id: engagementItemId },
+          select: { userId: true },
+        });
+
+        if (item?.userId && notifications) {
+          const urgencyEmoji = { low: '🟡', medium: '🟠', high: '🔴', critical: '🚨' }[urgency] ?? '⚠️';
+          await notifications.create(item.userId, {
+            type: 'ESCALATION',
+            title: `${urgencyEmoji} Escalation required${platform ? ` on ${platform}` : ''}`,
+            message: summary ?? reason,
+            metadata: { engagementItemId, reason, urgency, platform },
+          });
+        }
+
+        return { escalated: true, engagementItemId, urgency };
       },
     },
   ];

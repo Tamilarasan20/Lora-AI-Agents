@@ -120,6 +120,7 @@ model BrandKnowledge {
   prohibitedWords      String[]       @default([])
   preferredHashtags    String[]       @default([])
   brandColors          Json           @default("{}")
+  competitors          Json           @default("[]")
   logoUrl              String?
   websiteUrl           String?
   productDescription   String?

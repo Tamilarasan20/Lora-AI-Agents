@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import { SARAH_SYSTEM_PROMPT } from './sarah.prompts';
 import { buildSarahTools } from './sarah.tools';
 
@@ -29,9 +30,12 @@ export class SarahAgent extends BaseAgent {
   protected readonly systemPrompt = SARAH_SYSTEM_PROMPT;
   protected readonly tools: ToolDefinition[];
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly notifications: NotificationsService,
+  ) {
     super();
-    this.tools = buildSarahTools(this.prisma);
+    this.tools = buildSarahTools(this.prisma, this.notifications);
   }
 
   async decidePublishTime(decision: PublishDecision): Promise<AgentRunResult> {

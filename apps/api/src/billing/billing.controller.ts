@@ -51,7 +51,7 @@ export class BillingController {
     @Req() req: FastifyRequest,
     @Headers('stripe-signature') sig: string,
   ) {
-    const raw = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? ''));
+    const raw = (req as any).rawBody as Buffer;
     await this.billing.handleWebhook(raw, sig);
     return { received: true };
   }

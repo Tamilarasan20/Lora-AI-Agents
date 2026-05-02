@@ -4,6 +4,7 @@ import { Worker, Job } from 'bullmq';
 import { QUEUE_NAMES, JOB_NAMES } from '../queue.constants';
 import { ClaraAgent, ContentBrief } from '../../agents/clara/clara.agent';
 import { MarkAgent } from '../../agents/mark/mark.agent';
+import { SarahAgent, EngagementItem } from '../../agents/sarah/sarah.agent';
 import { EventBusService } from '../../events/event-bus.service';
 import { KAFKA_TOPICS } from '../../events/event.types';
 
@@ -24,6 +25,7 @@ export class AgentTaskProcessor {
   constructor(
     private readonly clara: ClaraAgent,
     private readonly mark: MarkAgent,
+    private readonly sarah: SarahAgent,
     private readonly eventBus: EventBusService,
     private readonly configService: ConfigService,
   ) {}
@@ -38,7 +40,7 @@ export class AgentTaskProcessor {
     this.worker = new Worker(
       QUEUE_NAMES.AGENT_TASK,
       async (job: Job<AgentTaskPayload>) => this.process(job),
-      { connection, concurrency: 3 }, // limit concurrency to control Anthropic API costs
+      { connection, concurrency: 3 },
     );
 
     this.worker.on('completed', (job) => {
@@ -69,6 +71,10 @@ export class AgentTaskProcessor {
           input.platform as string,
           input.brand as Parameters<typeof this.clara.adaptForPlatform>[2],
         );
+        break;
+
+      case JOB_NAMES.SARAH_PROCESS_ENGAGEMENT:
+        result = await this.sarah.processEngagement(input as unknown as EngagementItem);
         break;
 
       case JOB_NAMES.MARK_ANALYZE_TRENDS:
