@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Building2, Mic2, Users } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Trash2, Save, Building2, Mic2, Users, Wand2, Download, CheckCircle2, Loader2, Globe } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,25 +9,28 @@ import {
   useBrandProfile, useUpdateBrand,
   useBrandVoice, useUpdateBrandVoice,
   useCompetitors, useAddCompetitor, useRemoveCompetitor,
+  useAnalyzeBrandWebsite, useBrandMarkdown,
 } from '@/lib/hooks/useBrand';
 import { PLATFORM_ICONS } from '@/lib/utils';
 
-type Tab = 'profile' | 'voice' | 'competitors';
+type Tab = 'analyze' | 'profile' | 'voice' | 'competitors';
+
+const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
+  { key: 'analyze', label: 'AI Analyzer', icon: <Wand2 className="w-4 h-4" /> },
+  { key: 'profile', label: 'Brand profile', icon: <Building2 className="w-4 h-4" /> },
+  { key: 'voice', label: 'Brand voice', icon: <Mic2 className="w-4 h-4" /> },
+  { key: 'competitors', label: 'Competitors', icon: <Users className="w-4 h-4" /> },
+];
 
 export default function BrandPage() {
-  const [tab, setTab] = useState<Tab>('profile');
+  const [tab, setTab] = useState<Tab>('analyze');
 
   return (
     <>
       <Header title="Brand Settings" />
       <div className="flex-1 p-6 max-w-3xl">
-        {/* Tabs */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-6 w-fit">
-          {([
-            { key: 'profile', label: 'Brand profile', icon: <Building2 className="w-4 h-4" /> },
-            { key: 'voice', label: 'Brand voice', icon: <Mic2 className="w-4 h-4" /> },
-            { key: 'competitors', label: 'Competitors', icon: <Users className="w-4 h-4" /> },
-          ] as { key: Tab; label: string; icon: React.ReactNode }[]).map((t) => (
+          {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -39,13 +42,191 @@ export default function BrandPage() {
           ))}
         </div>
 
-        {tab === 'profile' && <BrandProfileTab />}
-        {tab === 'voice' && <BrandVoiceTab />}
-        {tab === 'competitors' && <CompetitorsTab />}
+        {tab === 'analyze'      && <AnalyzeTab onSuccess={() => setTab('profile')} />}
+        {tab === 'profile'      && <BrandProfileTab />}
+        {tab === 'voice'        && <BrandVoiceTab />}
+        {tab === 'competitors'  && <CompetitorsTab />}
       </div>
     </>
   );
 }
+
+// ── Step progress labels ───────────────────────────────────────────────────────
+
+const STEPS = [
+  'Scraping pages…',
+  'Downloading images…',
+  'AI analysis…',
+  'Saving to database…',
+];
+
+function AnalyzeTab({ onSuccess }: { onSuccess: () => void }) {
+  const [url, setUrl] = useState('');
+  const [stepIdx, setStepIdx] = useState(0);
+  const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyze = useAnalyzeBrandWebsite();
+  const markdown = useBrandMarkdown();
+
+  // Cycle through progress steps while pending
+  useEffect(() => {
+    if (analyze.isPending) {
+      setStepIdx(0);
+      stepTimer.current = setInterval(() => {
+        setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
+      }, 4000);
+    } else {
+      if (stepTimer.current) clearInterval(stepTimer.current);
+    }
+    return () => { if (stepTimer.current) clearInterval(stepTimer.current); };
+  }, [analyze.isPending]);
+
+  // Auto-switch to profile tab 2 s after success
+  useEffect(() => {
+    if (analyze.isSuccess) {
+      const t = setTimeout(onSuccess, 2000);
+      return () => clearTimeout(t);
+    }
+  }, [analyze.isSuccess, onSuccess]);
+
+  const handleAnalyze = () => {
+    if (!url.trim()) return;
+    analyze.mutate(url.trim());
+  };
+
+  const handleDownload = async () => {
+    const result = await markdown.refetch();
+    const presignedUrl = result.data?.url;
+    if (presignedUrl) window.open(presignedUrl, '_blank');
+  };
+
+  const result = analyze.data as any;
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <h2 className="font-semibold text-gray-900">Analyze your website</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Enter your website URL and AI will automatically extract your brand profile, voice, colors, and competitors.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                id="analyze-url"
+                placeholder="https://example.com"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
+                disabled={analyze.isPending}
+              />
+            </div>
+            <Button
+              onClick={handleAnalyze}
+              loading={analyze.isPending}
+              disabled={!url.trim() || analyze.isPending}
+            >
+              <Wand2 className="w-4 h-4" />
+              Analyze
+            </Button>
+          </div>
+
+          {/* Progress */}
+          {analyze.isPending && (
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
+                <span className="text-sm font-medium text-brand-700">{STEPS[stepIdx]}</span>
+              </div>
+              <div className="flex gap-1">
+                {STEPS.map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${i <= stepIdx ? 'bg-brand-500' : 'bg-brand-100'}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {analyze.isError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+              Analysis failed. Please check the URL and try again.
+            </div>
+          )}
+
+          {/* Success results */}
+          {analyze.isSuccess && result && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                <CheckCircle2 className="w-5 h-5" />
+                Analysis complete — profile auto-filled, switching to Brand profile…
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 gap-4 text-sm">
+                {result.logoUrl && (
+                  <div className="col-span-2 flex items-center gap-3">
+                    <img src={result.logoUrl} alt="Logo" className="h-10 w-auto object-contain rounded" />
+                    <span className="text-gray-500 text-xs">Logo extracted</span>
+                  </div>
+                )}
+                <LabelValue label="Brand name" value={result.brandName} />
+                <LabelValue label="Industry" value={result.industry} />
+                <LabelValue label="Tone" value={result.tone} />
+                <LabelValue label="Business model" value={result.businessModel} />
+                <div className="col-span-2">
+                  <LabelValue label="Value proposition" value={result.valueProposition} />
+                </div>
+                {result.competitors?.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-gray-500 font-medium">Detected competitors: </span>
+                    <span className="text-gray-800">{result.competitors.slice(0, 5).join(', ')}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={handleDownload} loading={markdown.isFetching}>
+                  <Download className="w-4 h-4" />
+                  Download brand knowledge (.md)
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Download button when no fresh analysis but data may exist */}
+          {!analyze.isSuccess && !analyze.isPending && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" /> Analysis typically takes 30–60 seconds
+              </span>
+              <button
+                onClick={handleDownload}
+                className="text-xs text-brand-600 hover:underline flex items-center gap-1"
+              >
+                <Download className="w-3 h-3" /> Download previous analysis
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function LabelValue({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      <span className="text-gray-500 font-medium">{label}: </span>
+      <span className="text-gray-800">{value}</span>
+    </div>
+  );
+}
+
+// ── Profile tab ────────────────────────────────────────────────────────────────
 
 function BrandProfileTab() {
   const { data, isLoading } = useBrandProfile();
@@ -64,34 +245,15 @@ function BrandProfileTab() {
     }
   }, [data]);
 
-  const handleSave = () => update.mutate(form);
-
   if (isLoading) return <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />;
 
   return (
     <Card>
       <CardHeader><h2 className="font-semibold text-gray-900">Brand profile</h2></CardHeader>
       <CardContent className="space-y-4">
-        <Input
-          id="brand-name"
-          label="Brand name"
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-        />
-        <Input
-          id="brand-website"
-          label="Website"
-          placeholder="https://example.com"
-          value={form.website}
-          onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
-        />
-        <Input
-          id="brand-industry"
-          label="Industry"
-          placeholder="e.g. Fashion & Apparel"
-          value={form.industry}
-          onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-        />
+        <Input id="brand-name" label="Brand name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        <Input id="brand-website" label="Website" placeholder="https://example.com" value={form.website} onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))} />
+        <Input id="brand-industry" label="Industry" placeholder="e.g. Fashion & Apparel" value={form.industry} onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))} />
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Brand description</label>
           <textarea
@@ -113,7 +275,7 @@ function BrandProfileTab() {
           />
         </div>
         <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} loading={update.isPending}>
+          <Button onClick={() => update.mutate(form)} loading={update.isPending}>
             <Save className="w-4 h-4" /> Save changes
           </Button>
         </div>
@@ -121,6 +283,8 @@ function BrandProfileTab() {
     </Card>
   );
 }
+
+// ── Voice tab ──────────────────────────────────────────────────────────────────
 
 const TONE_OPTIONS = ['professional', 'casual', 'humorous', 'inspirational', 'educational', 'bold', 'empathetic'];
 
@@ -149,10 +313,8 @@ function BrandVoiceTab() {
 
   const updateList = (key: 'doList' | 'dontList' | 'sampleCaptions', idx: number, val: string) =>
     setForm((f) => ({ ...f, [key]: f[key].map((v, i) => (i === idx ? val : v)) }));
-
   const addItem = (key: 'doList' | 'dontList' | 'sampleCaptions') =>
     setForm((f) => ({ ...f, [key]: [...f[key], ''] }));
-
   const removeItem = (key: 'doList' | 'dontList' | 'sampleCaptions', idx: number) =>
     setForm((f) => ({ ...f, [key]: f[key].filter((_, i) => i !== idx) }));
 
@@ -188,7 +350,6 @@ function BrandVoiceTab() {
         </CardContent>
       </Card>
 
-      {/* Do / Don't */}
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardHeader><h3 className="font-medium text-green-700">Always do</h3></CardHeader>
@@ -248,6 +409,8 @@ function BrandVoiceTab() {
   );
 }
 
+// ── Competitors tab ────────────────────────────────────────────────────────────
+
 const PLATFORMS_LIST = ['instagram', 'twitter', 'linkedin', 'tiktok', 'facebook'];
 
 function CompetitorsTab() {
@@ -272,7 +435,6 @@ function CompetitorsTab() {
             Mark AI monitors these accounts and uses their content patterns to help you stay competitive.
           </p>
 
-          {/* Add form */}
           <div className="flex gap-2">
             <select
               value={newPlatform}
@@ -295,7 +457,6 @@ function CompetitorsTab() {
             </Button>
           </div>
 
-          {/* Competitor list */}
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (

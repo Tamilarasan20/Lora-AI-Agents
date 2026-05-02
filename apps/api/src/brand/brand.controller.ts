@@ -2,12 +2,16 @@ import {
   Body, Controller, Delete, Get, Param, Patch, Post, Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsArray, IsString, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { BrandService } from './brand.service';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthUser } from '../auth/strategies/jwt.strategy';
+
+class AnalyzeWebsiteDto {
+  @ApiProperty() @IsString() @IsUrl() websiteUrl: string;
+}
 
 class StringArrayDto {
   @ApiProperty({ type: [String] })
@@ -106,5 +110,19 @@ export class BrandController {
   @ApiOperation({ summary: 'Add words to prohibited list' })
   addProhibited(@CurrentUser() user: AuthUser, @Body() dto: StringArrayDto) {
     return this.brandService.addProhibitedWords(user.id, dto.items);
+  }
+
+  // ── Website Analyzer ───────────────────────────────────────────────────────
+
+  @Post('analyze-website')
+  @ApiOperation({ summary: 'Scrape website and auto-fill brand profile via AI' })
+  analyzeWebsite(@CurrentUser() user: AuthUser, @Body() dto: AnalyzeWebsiteDto) {
+    return this.brandService.analyzeWebsite(user.id, dto.websiteUrl);
+  }
+
+  @Get('markdown')
+  @ApiOperation({ summary: 'Get presigned URL for brand knowledge markdown file' })
+  getMarkdown(@CurrentUser() user: AuthUser) {
+    return this.brandService.getMarkdown(user.id);
   }
 }

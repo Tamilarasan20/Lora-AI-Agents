@@ -57,3 +57,23 @@ export function useRemoveCompetitor() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'competitors'] }),
   });
 }
+
+export function useAnalyzeBrandWebsite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (websiteUrl: string) =>
+      api.post('/brand/analyze-website', { websiteUrl }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brand'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'voice'] });
+    },
+  });
+}
+
+export function useBrandMarkdown() {
+  return useQuery({
+    queryKey: ['brand', 'markdown'],
+    queryFn: () => api.get('/brand/markdown').then((r) => r.data),
+    enabled: false,
+  });
+}
