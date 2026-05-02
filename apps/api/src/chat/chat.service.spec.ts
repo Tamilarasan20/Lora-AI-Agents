@@ -87,7 +87,7 @@ describe('ChatService', () => {
   it('accumulates conversation history across turns', async () => {
     const session = 'session-history';
 
-    for await (const _ of service.streamMessage(session, 'First message', 'lora')) {}
+    for await (const _ of service.streamMessage(session, 'First message', 'lora')) { /* drain */ }
     const history = service.getHistory(session);
 
     // Should have user message + assistant message

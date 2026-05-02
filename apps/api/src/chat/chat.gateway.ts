@@ -34,7 +34,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
         const userId = payload.sub ?? payload.userId;
         if (userId) this.clientUserMap.set(client.id, userId);
-      } catch {
+      } catch (_e) {
         // unauthenticated connection — allowed, limits applied per message if needed
       }
     }
