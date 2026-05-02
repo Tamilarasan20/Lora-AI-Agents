@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -54,5 +54,20 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Delete a notification' })
   async delete(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     await this.notificationsService.delete(user.id, id);
+  }
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get notification preferences' })
+  getPreferences(@CurrentUser() user: AuthUser) {
+    return this.notificationsService.getPreferences(user.id);
+  }
+
+  @Patch('preferences')
+  @ApiOperation({ summary: 'Update notification preferences' })
+  updatePreferences(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: Partial<{ email: boolean; push: boolean; inApp: boolean; digest: boolean; digestFrequency: string }>,
+  ) {
+    return this.notificationsService.updatePreferences(user.id, dto);
   }
 }

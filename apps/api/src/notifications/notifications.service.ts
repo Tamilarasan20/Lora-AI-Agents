@@ -76,4 +76,23 @@ export class NotificationsService {
     if (notif.userId !== userId) throw new ForbiddenException();
     await this.prisma.notification.delete({ where: { id } });
   }
+
+  async getPreferences(userId: string) {
+    return this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
+  }
+
+  async updatePreferences(
+    userId: string,
+    dto: Partial<{ email: boolean; push: boolean; inApp: boolean; digest: boolean; digestFrequency: string }>,
+  ) {
+    return this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: { userId, ...dto },
+      update: dto,
+    });
+  }
 }

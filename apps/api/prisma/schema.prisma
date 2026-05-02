@@ -35,15 +35,16 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  platformConnections  PlatformConnection[]
-  content              Content[]
-  scheduledPosts       ScheduledPost[]
-  publishedPosts       PublishedPost[]
-  engagementItems      EngagementItem[]
-  brandKnowledge       BrandKnowledge?
-  notifications        Notification[]
-  auditLogs            AuditLog[]
-  audienceInsights     PlatformAudienceInsights[]
+  platformConnections      PlatformConnection[]
+  content                  Content[]
+  scheduledPosts           ScheduledPost[]
+  publishedPosts           PublishedPost[]
+  engagementItems          EngagementItem[]
+  brandKnowledge           BrandKnowledge?
+  notifications            Notification[]
+  notificationPreference   NotificationPreference?
+  auditLogs                AuditLog[]
+  audienceInsights         PlatformAudienceInsights[]
 
   @@index([email])
   @@index([status])
@@ -508,6 +509,25 @@ model Trend {
   @@index([isActive])
   @@index([detectedAt(sort: Desc)])
   @@map("trends")
+}
+
+// ============================================
+// NOTIFICATION PREFERENCES
+// ============================================
+
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique @db.Uuid
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email           Boolean  @default(true)
+  push            Boolean  @default(true)
+  inApp           Boolean  @default(true)
+  digest          Boolean  @default(false)
+  digestFrequency String   @default("daily")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("notification_preferences")
 }
 
 // ============================================

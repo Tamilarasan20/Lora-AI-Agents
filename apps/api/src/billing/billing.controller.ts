@@ -51,9 +51,7 @@ export class BillingController {
     @Req() req: FastifyRequest,
     @Headers('stripe-signature') sig: string,
   ) {
-    // body is already parsed by Fastify; for production webhook verification
-    // configure a raw content-type parser on this route
-    const raw = Buffer.from(JSON.stringify(req.body));
+    const raw = (req as any).rawBody ?? Buffer.from(JSON.stringify(req.body ?? ''));
     await this.billing.handleWebhook(raw, sig);
     return { received: true };
   }

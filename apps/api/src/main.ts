@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { FastifyInstance } from 'fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import multipart from '@fastify/multipart';
@@ -51,6 +52,16 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  // Attach rawBody on the Stripe webhook route for signature verification
+  const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
+  fastify.addHook('preHandler', async (req: any) => {
+    if (req.url === '/v1/billing/webhook') {
+      (req as any).rawBody = Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(JSON.stringify(req.body ?? ''));
+    }
+  });
 
   const port = Number(process.env.PORT) || 3000;
   await app.listen(port, '0.0.0.0');

@@ -1,5 +1,6 @@
 export const VECTOR_COLLECTIONS = {
   BRAND_CONTENT: 'brand_content',
+  BRAND_KNOWLEDGE: 'brand_knowledge',
   COMPETITOR_CONTENT: 'competitor_content',
   TRENDING_CONTENT: 'trending_content',
 } as const;
@@ -45,8 +46,14 @@ export interface TrendingContentPayload {
   detectedAt: string;
 }
 
+export interface BrandKnowledgePayload {
+  userId: string;
+  updatedAt: string;
+}
+
 export type VectorPayload =
   | BrandContentPayload
+  | BrandKnowledgePayload
   | CompetitorContentPayload
   | TrendingContentPayload;
 

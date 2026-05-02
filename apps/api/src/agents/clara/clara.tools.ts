@@ -1,3 +1,4 @@
+import OpenAI from 'openai';
 import { ToolDefinition } from '../base-agent';
 
 export function buildClaraTools(): ToolDefinition[] {
@@ -178,11 +179,32 @@ export function buildClaraTools(): ToolDefinition[] {
         required: ['contentTheme', 'platform'],
       },
       handler: async (input) => {
-        // TODO Phase 6: Pass to image generation service (Replicate/DALL-E)
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+        if (!process.env.OPENAI_API_KEY) {
+          return {
+            prompt: `A ${input.style ?? 'photorealistic'} image about ${input.contentTheme}`,
+            negativePrompt: 'low quality, blurry, watermark',
+            note: 'OPENAI_API_KEY not configured — returning prompt only',
+          };
+        }
+        const prompt = `A ${input.style ?? 'photorealistic'} image about ${input.contentTheme}, optimized for ${input.platform ?? 'social media'}, aspect ratio ${input.aspectRatio ?? '1:1'}, brand colors: ${(input.brandColors as string[] | undefined ?? []).join(', ') || 'vibrant'}`;
+        const size: '1792x1024' | '1024x1792' | '1024x1024' =
+          input.aspectRatio === '16:9' ? '1792x1024'
+          : input.aspectRatio === '9:16' ? '1024x1792'
+          : '1024x1024';
+        const response = await openai.images.generate({
+          model: 'dall-e-3',
+          prompt,
+          n: 1,
+          size,
+          quality: 'standard',
+          response_format: 'url',
+        });
+        const imageData = response.data?.[0];
         return {
-          prompt: `A ${input.style ?? 'photorealistic'} image about ${input.contentTheme}, optimized for ${input.platform}, aspect ratio ${input.aspectRatio ?? '1:1'}`,
-          negativePrompt: 'low quality, blurry, watermark, text overlay',
-          note: 'Stub — real implementation calls image generation API',
+          imageUrl: imageData?.url,
+          revisedPrompt: imageData?.revised_prompt,
+          prompt,
         };
       },
     },

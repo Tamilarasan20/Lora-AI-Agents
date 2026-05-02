@@ -6,9 +6,11 @@ import { ContentCreatedHandler } from './handlers/content-created.handler';
 import { PostPublishedHandler } from './handlers/post-published.handler';
 import { AnalyticsUpdatedHandler } from './handlers/analytics-updated.handler';
 import { TrendDetectedHandler } from './handlers/trend-detected.handler';
+import { QueueModule } from '../queue/queue.module';
 
 @Global()
 @Module({
+  imports: [QueueModule],
   providers: [
     KafkaProducerService,
     KafkaConsumerService,
