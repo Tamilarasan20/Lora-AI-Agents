@@ -103,6 +103,24 @@ export default function BrandPage() {
           </div>
         </div>
 
+        {/* Pomelli-style guided flow entry — separate from the legacy AnalyzeTab */}
+        <a
+          href="/brand/knowledge"
+          className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-fuchsia-50 px-5 py-4 transition hover:border-violet-300 hover:shadow-sm"
+        >
+          <div>
+            <div className="text-sm font-semibold text-violet-700">
+              ✨ New: Guided Knowledge Base builder
+            </div>
+            <div className="mt-0.5 text-sm text-violet-900/80">
+              Generate, review, and approve your full brand knowledge base in one flow.
+            </div>
+          </div>
+          <span className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white shadow-sm">
+            Start →
+          </span>
+        </a>
+
         {tab === 'analyze' && <AnalyzeTab onSuccess={() => setTab('knowledge')} />}
         {tab === 'knowledge' && <KnowledgeBaseTab />}
         {tab === 'profile' && <BrandProfileTab />}

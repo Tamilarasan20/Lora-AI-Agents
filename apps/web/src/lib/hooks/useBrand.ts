@@ -107,6 +107,119 @@ export function useAnalyzeBrandWebsite() {
   });
 }
 
+// ─── Pomelli-style async knowledge-base generation ───────────────────────
+// These hooks talk directly to the NestJS API (via the authenticated axios
+// client) instead of the local brand-store, because the long-running
+// generation job lives on the backend.
+
+export type BrandAnalysisJobStatus =
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'AWAITING_REVIEW'
+  | 'APPROVED'
+  | 'FAILED'
+  | 'CANCELLED';
+
+export interface BrandAnalysisJobStage {
+  key: 'crawl' | 'images' | 'extract' | 'documents' | 'finalize';
+  label: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export interface BrandAnalysisJob {
+  id: string;
+  websiteUrl: string;
+  status: BrandAnalysisJobStatus;
+  currentStage: string | null;
+  progressPct: number;
+  stages: BrandAnalysisJobStage[];
+  draftResult: Record<string, unknown> | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  approvedAt: string | null;
+}
+
+export function useStartBrandKnowledgeJob() {
+  return useMutation({
+    mutationFn: async (websiteUrl: string) => {
+      const { default: api } = await import('@/lib/api');
+      const { data } = await api.post<{ jobId: string; status: BrandAnalysisJobStatus; websiteUrl: string }>(
+        '/brand/analyze-website',
+        { websiteUrl },
+      );
+      return data;
+    },
+  });
+}
+
+/** Polls the job until it reaches a terminal-or-review state. */
+export function useBrandKnowledgeJob(jobId: string | null | undefined) {
+  return useQuery<BrandAnalysisJob>({
+    queryKey: ['brand', 'analyze-job', jobId],
+    queryFn: async () => {
+      const { default: api } = await import('@/lib/api');
+      const { data } = await api.get<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}`);
+      return data;
+    },
+    enabled: Boolean(jobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (!status) return 2_000;
+      // Stop polling once we reach a terminal/review state
+      if (['AWAITING_REVIEW', 'APPROVED', 'FAILED', 'CANCELLED'].includes(status)) return false;
+      return 2_000;
+    },
+  });
+}
+
+export function useUpdateBrandKnowledgeDraft(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Record<string, unknown>) => {
+      const { default: api } = await import('@/lib/api');
+      const { data } = await api.patch<BrandAnalysisJob>(
+        `/brand/analyze-website/jobs/${jobId}/draft`,
+        patch,
+      );
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'analyze-job', jobId] }),
+  });
+}
+
+export function useApproveBrandKnowledgeJob(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { default: api } = await import('@/lib/api');
+      const { data } = await api.post<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}/approve`);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brand'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'analyze-job', jobId] });
+    },
+  });
+}
+
+export function useCancelBrandKnowledgeJob(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { default: api } = await import('@/lib/api');
+      const { data } = await api.post<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}/cancel`);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'analyze-job', jobId] }),
+  });
+}
+
 export function useBrandMarkdown() {
   return useQuery({
     queryKey: ['brand', 'markdown'],
