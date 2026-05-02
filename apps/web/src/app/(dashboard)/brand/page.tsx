@@ -745,13 +745,14 @@ function InfoBlock({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function TagList({ title, items, emptyLabel }: { title: string; items: string[]; emptyLabel: string }) {
+function TagList({ title, items, emptyLabel }: { title: string; items?: string[]; emptyLabel: string }) {
+  const safeItems = items ?? [];
   return (
     <div>
       <h3 className="text-sm font-medium text-gray-700 mb-2">{title}</h3>
-      {items.length ? (
+      {safeItems.length ? (
         <div className="flex flex-wrap gap-2">
-          {items.map((item) => (
+          {safeItems.map((item) => (
             <span key={item} className="inline-flex items-center rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
               {item}
             </span>

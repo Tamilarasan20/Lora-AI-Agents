@@ -1,10 +1,34 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import type {
+  BrandDnaRecord,
+  BrandMemoryRecord,
+  BrandProfileRecord,
+  BrandValidationRecord,
+  CompetitorRecord,
+} from '@/lib/brand-types';
+
+async function brandRequest<T>(input: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api/brand${input}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.error ?? `Brand request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
 
 export function useBrandProfile() {
-  return useQuery({
+  return useQuery<BrandProfileRecord>({
     queryKey: ['brand'],
-    queryFn: () => api.get('/brand').then((r) => r.data),
+    queryFn: () => brandRequest(''),
     staleTime: 60_000,
   });
 }
@@ -12,15 +36,23 @@ export function useBrandProfile() {
 export function useUpdateBrand() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, any>) => api.put('/brand', data).then((r) => r.data),
+    mutationFn: (data: Record<string, any>) =>
+      brandRequest('', { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand'] }),
   });
 }
 
 export function useBrandVoice() {
-  return useQuery({
+  return useQuery<{
+    tone: string;
+    voiceCharacteristics: string[];
+    brandDescription: string;
+    valueProposition: string;
+    autoReplyEnabled: boolean;
+    sentimentThreshold: number;
+  }>({
     queryKey: ['brand', 'voice'],
-    queryFn: () => api.get('/brand/voice').then((r) => r.data),
+    queryFn: () => brandRequest('/voice'),
     staleTime: 60_000,
   });
 }
@@ -28,15 +60,16 @@ export function useBrandVoice() {
 export function useUpdateBrandVoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, any>) => api.put('/brand/voice', data).then((r) => r.data),
+    mutationFn: (data: Record<string, any>) =>
+      brandRequest('/voice', { method: 'PUT', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand'] }),
   });
 }
 
 export function useCompetitors() {
-  return useQuery({
+  return useQuery<CompetitorRecord[]>({
     queryKey: ['brand', 'competitors'],
-    queryFn: () => api.get('/brand/competitors').then((r) => r.data),
+    queryFn: () => brandRequest('/competitors'),
     staleTime: 60_000,
   });
 }
@@ -45,7 +78,7 @@ export function useAddCompetitor() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { platform: string; handle: string }) =>
-      api.post('/brand/competitors', data).then((r) => r.data),
+      brandRequest('/competitors', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'competitors'] }),
   });
 }
@@ -53,7 +86,7 @@ export function useAddCompetitor() {
 export function useRemoveCompetitor() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/brand/competitors/${id}`).then((r) => r.data),
+    mutationFn: (id: string) => brandRequest(`/competitors/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'competitors'] }),
   });
 }
@@ -62,10 +95,14 @@ export function useAnalyzeBrandWebsite() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (websiteUrl: string) =>
-      api.post('/brand/analyze-website', { websiteUrl }).then((r) => r.data),
+      brandRequest('/analyze-website', { method: 'POST', body: JSON.stringify({ websiteUrl }) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['brand'] });
       qc.invalidateQueries({ queryKey: ['brand', 'voice'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'documents'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'validation-history'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'dna'] });
+      qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'memory'] });
     },
   });
 }
@@ -73,23 +110,23 @@ export function useAnalyzeBrandWebsite() {
 export function useBrandMarkdown() {
   return useQuery({
     queryKey: ['brand', 'markdown'],
-    queryFn: () => api.get('/brand/markdown').then((r) => r.data),
+    queryFn: () => brandRequest('/documents'),
     enabled: false,
   });
 }
 
 export function useBrandDocuments() {
-  return useQuery({
+  return useQuery<Record<string, string | null>>({
     queryKey: ['brand', 'documents'],
-    queryFn: () => api.get('/brand/documents').then((r) => r.data),
+    queryFn: () => brandRequest('/documents'),
     enabled: false,
   });
 }
 
 export function useBrandValidationHistory() {
-  return useQuery({
+  return useQuery<BrandValidationRecord[]>({
     queryKey: ['brand', 'validation-history'],
-    queryFn: () => api.get('/brand/validation-history').then((r) => r.data),
+    queryFn: () => brandRequest('/validation-history'),
     staleTime: 5 * 60_000,
   });
 }
@@ -97,9 +134,9 @@ export function useBrandValidationHistory() {
 // ── Intelligence hooks ─────────────────────────────────────────────────────
 
 export function useBrandDna() {
-  return useQuery({
+  return useQuery<BrandDnaRecord>({
     queryKey: ['brand', 'intelligence', 'dna'],
-    queryFn: () => api.get('/brand/intelligence/dna').then((r) => r.data),
+    queryFn: () => brandRequest('/intelligence/dna'),
     staleTime: 5 * 60_000,
   });
 }
@@ -107,15 +144,15 @@ export function useBrandDna() {
 export function useExtractDna() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post('/brand/intelligence/dna/extract').then((r) => r.data),
+    mutationFn: () => brandRequest('/intelligence/dna/extract', { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'dna'] }),
   });
 }
 
 export function useBrandMemory(limit?: number) {
-  return useQuery({
+  return useQuery<BrandMemoryRecord[]>({
     queryKey: ['brand', 'intelligence', 'memory', limit],
-    queryFn: () => api.get('/brand/intelligence/memory', { params: { limit } }).then((r) => r.data),
+    queryFn: () => brandRequest(`/intelligence/memory?limit=${limit ?? 10}`),
     staleTime: 30_000,
   });
 }

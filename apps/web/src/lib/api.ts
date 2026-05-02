@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { supabase } from './supabase';
+import { isSupabaseConfigured, supabase } from './supabase';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -12,6 +12,9 @@ export const api = axios.create({
 // ── Request interceptor — attach Supabase Bearer token ───────────────────
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  if (!isSupabaseConfigured) {
+    return config;
+  }
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
@@ -24,6 +27,9 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
+    if (!isSupabaseConfigured) {
+      return Promise.reject(error);
+    }
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status !== 401 || original._retry) {

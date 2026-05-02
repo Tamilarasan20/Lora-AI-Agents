@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../supabase';
+import { isSupabaseConfigured, supabase } from '../supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export interface AuthUser {
@@ -29,6 +29,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
   isAuthenticated: false,
 
   login: async (email, password) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    }
     set({ isLoading: true });
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -39,6 +42,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   register: async (email, password, name) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    }
     set({ isLoading: true });
     try {
       const { error } = await supabase.auth.signUp({
@@ -53,11 +59,27 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
 
   logout: async () => {
+    if (!isSupabaseConfigured) {
+      set({ user: null, isAuthenticated: false });
+      return;
+    }
     await supabase.auth.signOut();
     set({ user: null, isAuthenticated: false });
   },
 
   syncFromSupabase: async (supabaseUser: SupabaseUser) => {
+    if (!isSupabaseConfigured) {
+      set({
+        user: {
+          id: '',
+          supabaseId: supabaseUser.id,
+          email: supabaseUser.email ?? '',
+          plan: 'FREE',
+        },
+        isAuthenticated: true,
+      });
+      return;
+    }
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
