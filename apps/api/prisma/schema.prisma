@@ -46,6 +46,12 @@ model User {
   auditLogs                AuditLog[]
   audienceInsights         PlatformAudienceInsights[]
   workspaces               Workspace[]
+  brandMemoryEntries       BrandMemoryEntry[]
+  brandDna                 BrandDna?
+  customerVoiceInsights    CustomerVoiceInsight[]
+  competitorSnapshots      CompetitorSnapshot[]
+  brandDriftReports        BrandDriftReport[]
+  brandValidationLogs      BrandValidationLog[]
 
   @@index([email])
   @@index([status])
@@ -131,6 +137,17 @@ model BrandKnowledge {
   dmHandling           DmHandlingMode @default(HYBRID)
   sentimentThreshold   Float          @default(-0.5)
   embeddingVector      Float[]        @default([])
+  // Multi-pass intelligence fields
+  confidenceScores     Json           @default("{}")
+  validationScore      Float          @default(0)
+  audiencePsychology   Json           @default("{}")
+  marketIntelligence   Json           @default("{}")
+  socialStrategy       Json           @default("{}")
+  visualIntelligence   Json           @default("{}")
+  contradictions       Json           @default("[]")
+  missingInsights      Json           @default("[]")
+  pagesScraped         String[]       @default([])
+  lastValidatedAt      DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -859,6 +876,144 @@ enum AkeAssetStatus {
   ANALYZING
   READY
   FAILED
+}
+
+// ============================================
+// BRAND VALIDATION AUDIT LOG
+// ============================================
+
+model BrandValidationLog {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String   @db.Uuid
+  websiteUrl         String?
+  pass1Extraction    Json     @default("{}")
+  pass2Strategic     Json     @default("{}")
+  pass3Market        Json     @default("{}")
+  pass4Social        Json     @default("{}")
+  geminiReport       Json     @default("{}")
+  contradictions     Json     @default("[]")
+  missingInsights    Json     @default("[]")
+  validationWarnings Json     @default("[]")
+  overallScore       Float    @default(0)
+  pagesScraped       Int      @default(0)
+  imagesFound        Int      @default(0)
+  validatedAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([validatedAt(sort: Desc)])
+  @@map("brand_validation_logs")
+}
+
+// ============================================
+// BRAND INTELLIGENCE — LIVING MEMORY SYSTEM
+// ============================================
+
+model BrandMemoryEntry {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @db.Uuid
+  changeType    String   @db.VarChar(100)
+  field         String   @db.VarChar(100)
+  previousValue String?
+  currentValue  String?
+  confidence    Float    @default(0)
+  source        String?  @db.VarChar(100)
+  detectedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([changeType])
+  @@index([detectedAt(sort: Desc)])
+  @@map("brand_memory_entries")
+}
+
+model BrandDna {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String   @unique @db.Uuid
+  archetype           String?  @db.VarChar(100)
+  persuasionStyle     String?  @db.VarChar(100)
+  emotionalEnergy     String?  @db.VarChar(100)
+  sophisticationLevel Int      @default(1)
+  awarenessLevel      Int      @default(1)
+  brandPersonality    Json     @default("{}")
+  coreValues          String[] @default([])
+  brandPromise        String?
+  storyArc            String?
+  messagingPillars    Json     @default("[]")
+  confidenceScore     Float    @default(0)
+  extractedAt         DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("brand_dna")
+}
+
+model CustomerVoiceInsight {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String   @db.Uuid
+  sourceType             String   @db.VarChar(50)
+  sourceUrl              String?
+  rawTexts               String[] @default([])
+  topObjections          String[] @default([])
+  customerDesires        String[] @default([])
+  emotionalLanguage      String[] @default([])
+  frequentPhrases        String[] @default([])
+  painPoints             String[] @default([])
+  transformationOutcomes String[] @default([])
+  overallSentiment       String   @default("neutral") @db.VarChar(20)
+  sentimentScore         Float    @default(0)
+  processedAt            DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("customer_voice_insights")
+}
+
+model CompetitorSnapshot {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String   @db.Uuid
+  competitorHandle String   @db.VarChar(255)
+  platform         String   @db.VarChar(50)
+  websiteUrl       String?
+  messaging        String?
+  valueProposition String?
+  contentThemes    String[] @default([])
+  postingFrequency String?  @db.VarChar(50)
+  topHashtags      String[] @default([])
+  uniqueStrengths  String[] @default([])
+  weaknesses       String[] @default([])
+  positioningNotes String?
+  overlapScore     Float    @default(0)
+  snapshotAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, competitorHandle])
+  @@index([snapshotAt(sort: Desc)])
+  @@map("competitor_snapshots")
+}
+
+model BrandDriftReport {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String   @db.Uuid
+  consistencyScore  Int      @default(100)
+  detectedConflicts Json     @default("[]")
+  toneMismatches    Json     @default("[]")
+  channelsAnalyzed  String[] @default([])
+  strengths         String[] @default([])
+  recommendations   Json     @default("[]")
+  generatedAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([generatedAt(sort: Desc)])
+  @@map("brand_drift_reports")
 }
 
 // ============================================

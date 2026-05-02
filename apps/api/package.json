@@ -23,6 +23,7 @@
     "@aws-sdk/client-s3": "^3.620.0",
     "@aws-sdk/s3-request-presigner": "^3.620.0",
     "@fastify/multipart": "^8.3.0",
+    "@fastify/static": "^7.0.4",
     "@google/generative-ai": "^0.24.1",
     "@nestjs/bullmq": "^10.2.0",
     "@nestjs/common": "^10.4.0",

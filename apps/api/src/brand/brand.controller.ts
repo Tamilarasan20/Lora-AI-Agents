@@ -1,32 +1,34 @@
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Put,
+  Body, Controller, Delete, Get, Param, Patch, Post, Put, Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsArray, IsString, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BrandService } from './brand.service';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthUser } from '../auth/strategies/jwt.strategy';
+import { BrandIntelligenceService } from './intelligence/brand-intelligence.service';
+import { AgentName } from './intelligence/agent-context.service';
+import { ChannelSample } from './intelligence/brand-drift.service';
+import { CustomerVoiceInput } from './intelligence/customer-voice.service';
+import { Competitor } from './brand.service';
 
 class AnalyzeWebsiteDto {
   @ApiProperty() @IsString() @IsUrl() websiteUrl: string;
 }
 
 class StringArrayDto {
-  @ApiProperty({ type: [String] })
-  @IsArray()
-  @IsString({ each: true })
-  items: string[];
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) items: string[];
 }
 
 class UpdateVoiceDto {
-  @ApiProperty({ required: false }) @IsOptional() @IsString()  tone?: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsArray()   voiceCharacteristics?: string[];
-  @ApiProperty({ required: false }) @IsOptional() @IsString()  brandDescription?: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsString()  valueProposition?: string;
-  @ApiProperty({ required: false }) @IsOptional() @IsBoolean() autoReplyEnabled?: boolean;
-  @ApiProperty({ required: false }) @IsOptional() @IsNumber()  sentimentThreshold?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString()  tone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsArray()   voiceCharacteristics?: string[];
+  @ApiPropertyOptional() @IsOptional() @IsString()  brandDescription?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString()  valueProposition?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoReplyEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsNumber()  sentimentThreshold?: number;
 }
 
 class AddCompetitorDto {
@@ -34,11 +36,42 @@ class AddCompetitorDto {
   @ApiProperty() @IsString() handle: string;
 }
 
+class AnalyzeCompetitorDto {
+  @ApiProperty() @IsString() platform: string;
+  @ApiProperty() @IsString() handle: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() websiteUrl?: string;
+}
+
+class IngestCustomerVoiceDto {
+  @ApiProperty() @IsString() sourceType: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() sourceUrl?: string;
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) texts: string[];
+}
+
+class DriftChannelDto {
+  @ApiProperty() @IsString() channel: string;
+  @ApiProperty() @IsString() content: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() url?: string;
+}
+
+class AnalyzeDriftDto {
+  @ApiProperty({ type: [DriftChannelDto] }) channels: DriftChannelDto[];
+}
+
+class SearchDto {
+  @ApiProperty() @IsString() query: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() agentContext?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() limit?: number;
+}
+
 @ApiTags('Brand')
 @ApiBearerAuth()
 @Controller('brand')
 export class BrandController {
-  constructor(private readonly brandService: BrandService) {}
+  constructor(
+    private readonly brandService: BrandService,
+    private readonly intel: BrandIntelligenceService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get full brand knowledge profile' })
@@ -53,12 +86,10 @@ export class BrandController {
   }
 
   @Put()
-  @ApiOperation({ summary: 'Replace brand profile fields (alias for PATCH)' })
+  @ApiOperation({ summary: 'Replace brand profile fields' })
   replace(@CurrentUser() user: AuthUser, @Body() dto: UpdateBrandDto) {
     return this.brandService.update(user.id, dto);
   }
-
-  // ── Voice ──────────────────────────────────────────────────────────────────
 
   @Get('voice')
   @ApiOperation({ summary: 'Get brand voice settings' })
@@ -71,8 +102,6 @@ export class BrandController {
   updateVoice(@CurrentUser() user: AuthUser, @Body() dto: UpdateVoiceDto) {
     return this.brandService.updateVoice(user.id, dto);
   }
-
-  // ── Competitors ────────────────────────────────────────────────────────────
 
   @Get('competitors')
   @ApiOperation({ summary: 'List tracked competitors' })
@@ -92,8 +121,6 @@ export class BrandController {
     return this.brandService.removeCompetitor(user.id, id);
   }
 
-  // ── Hashtags / Prohibited ──────────────────────────────────────────────────
-
   @Post('hashtags')
   @ApiOperation({ summary: 'Add hashtags to preferred list' })
   addHashtags(@CurrentUser() user: AuthUser, @Body() dto: StringArrayDto) {
@@ -112,8 +139,6 @@ export class BrandController {
     return this.brandService.addProhibitedWords(user.id, dto.items);
   }
 
-  // ── Website Analyzer ───────────────────────────────────────────────────────
-
   @Post('analyze-website')
   @ApiOperation({ summary: 'Scrape website and auto-fill brand profile via AI' })
   analyzeWebsite(@CurrentUser() user: AuthUser, @Body() dto: AnalyzeWebsiteDto) {
@@ -124,5 +149,129 @@ export class BrandController {
   @ApiOperation({ summary: 'Get presigned URL for brand knowledge markdown file' })
   getMarkdown(@CurrentUser() user: AuthUser) {
     return this.brandService.getMarkdown(user.id);
+  }
+
+  @Get('documents')
+  @ApiOperation({ summary: 'Get presigned URLs for all 5 brand intelligence documents' })
+  getDocuments(@CurrentUser() user: AuthUser) {
+    return this.brandService.getDocuments(user.id);
+  }
+
+  @Get('validation-history')
+  @ApiOperation({ summary: 'Get brand validation log history' })
+  getValidationHistory(@CurrentUser() user: AuthUser) {
+    return this.brandService.getValidationHistory(user.id);
+  }
+
+  // ═══════════════════════════════ INTELLIGENCE ═══════════════════════════════
+
+  @Post('intelligence/enrich')
+  @ApiOperation({ summary: 'Trigger full AI intelligence enrichment pipeline' })
+  fullEnrich(@CurrentUser() user: AuthUser) {
+    return this.intel.fullEnrich(user.id);
+  }
+
+  @Get('intelligence/dna')
+  @ApiOperation({ summary: 'Get brand DNA — archetype, persuasion style, emotional energy' })
+  getDna(@CurrentUser() user: AuthUser) {
+    return this.intel.getDna(user.id);
+  }
+
+  @Post('intelligence/dna/extract')
+  @ApiOperation({ summary: 'Re-extract brand DNA from current profile' })
+  extractDna(@CurrentUser() user: AuthUser) {
+    return this.intel.extractDna(user.id);
+  }
+
+  @Get('intelligence/memory')
+  @ApiOperation({ summary: 'Get brand change history (living memory)' })
+  getMemory(@CurrentUser() user: AuthUser, @Query('limit') limit?: string) {
+    return this.intel.getMemoryHistory(user.id, limit ? parseInt(limit, 10) : undefined);
+  }
+
+  @Get('intelligence/memory/timeline')
+  @ApiOperation({ summary: 'Get positioning evolution timeline' })
+  getTimeline(@CurrentUser() user: AuthUser) {
+    return this.intel.getPositioningTimeline(user.id);
+  }
+
+  @Get('intelligence/customer-voice')
+  @ApiOperation({ summary: 'Get aggregated customer voice insights' })
+  getCustomerVoice(@CurrentUser() user: AuthUser) {
+    return this.intel.getCustomerVoice(user.id);
+  }
+
+  @Post('intelligence/customer-voice')
+  @ApiOperation({ summary: 'Ingest customer reviews, comments, or testimonials' })
+  ingestCustomerVoice(@CurrentUser() user: AuthUser, @Body() dto: IngestCustomerVoiceDto) {
+    return this.intel.ingestCustomerVoice(user.id, {
+      sourceType: dto.sourceType as CustomerVoiceInput['sourceType'],
+      sourceUrl: dto.sourceUrl,
+      texts: dto.texts,
+    });
+  }
+
+  @Get('intelligence/competitors')
+  @ApiOperation({ summary: 'Get competitor snapshots' })
+  getCompetitorSnapshots(@CurrentUser() user: AuthUser, @Query('handle') handle?: string) {
+    return this.intel.getCompetitorSnapshots(user.id, handle);
+  }
+
+  @Post('intelligence/competitors/analyze')
+  @ApiOperation({ summary: 'Analyze a competitor with AI' })
+  analyzeCompetitor(@CurrentUser() user: AuthUser, @Body() dto: AnalyzeCompetitorDto) {
+    return this.intel.analyzeCompetitor(user.id, {
+      id: '',
+      platform: dto.platform,
+      handle: dto.handle,
+      addedAt: new Date().toISOString(),
+    } as Competitor, dto.websiteUrl);
+  }
+
+  @Get('intelligence/competitors/report')
+  @ApiOperation({ summary: 'Get full competitive intelligence report' })
+  getCompetitiveReport(@CurrentUser() user: AuthUser) {
+    return this.intel.getCompetitiveReport(user.id);
+  }
+
+  @Get('intelligence/drift')
+  @ApiOperation({ summary: 'Get latest brand drift / consistency report' })
+  getDrift(@CurrentUser() user: AuthUser) {
+    return this.intel.getLatestDrift(user.id);
+  }
+
+  @Get('intelligence/drift/history')
+  @ApiOperation({ summary: 'Get brand drift report history' })
+  getDriftHistory(@CurrentUser() user: AuthUser) {
+    return this.intel.getDriftHistory(user.id);
+  }
+
+  @Post('intelligence/drift/analyze')
+  @ApiOperation({ summary: 'Run brand consistency analysis across channel content' })
+  analyzeDrift(@CurrentUser() user: AuthUser, @Body() dto: AnalyzeDriftDto) {
+    return this.intel.analyzeDrift(user.id, dto.channels as ChannelSample[]);
+  }
+
+  @Post('intelligence/drift/auto')
+  @ApiOperation({ summary: 'Auto-analyze drift from published post history' })
+  autoDrift(@CurrentUser() user: AuthUser) {
+    return this.intel.getLatestDrift(user.id);
+  }
+
+  @Get('intelligence/agent/:agent')
+  @ApiOperation({ summary: 'Get agent-specific brand intelligence context' })
+  getAgentContext(@CurrentUser() user: AuthUser, @Param('agent') agent: string) {
+    const valid: AgentName[] = ['sophie', 'leo', 'nova', 'atlas', 'clara', 'sarah', 'mark', 'general'];
+    const agentName: AgentName = valid.includes(agent as AgentName) ? (agent as AgentName) : 'general';
+    return this.intel.getAgentContext(user.id, agentName);
+  }
+
+  @Post('intelligence/search')
+  @ApiOperation({ summary: 'Semantic search across brand knowledge' })
+  search(@CurrentUser() user: AuthUser, @Body() dto: SearchDto) {
+    return this.intel.search(user.id, dto.query, {
+      agentContext: dto.agentContext as AgentName,
+      limit: dto.limit,
+    });
   }
 }

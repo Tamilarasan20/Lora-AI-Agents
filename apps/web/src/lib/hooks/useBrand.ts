@@ -77,3 +77,115 @@ export function useBrandMarkdown() {
     enabled: false,
   });
 }
+
+export function useBrandDocuments() {
+  return useQuery({
+    queryKey: ['brand', 'documents'],
+    queryFn: () => api.get('/brand/documents').then((r) => r.data),
+    enabled: false,
+  });
+}
+
+export function useBrandValidationHistory() {
+  return useQuery({
+    queryKey: ['brand', 'validation-history'],
+    queryFn: () => api.get('/brand/validation-history').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+}
+
+// ── Intelligence hooks ─────────────────────────────────────────────────────
+
+export function useBrandDna() {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'dna'],
+    queryFn: () => api.get('/brand/intelligence/dna').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useExtractDna() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/brand/intelligence/dna/extract').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'dna'] }),
+  });
+}
+
+export function useBrandMemory(limit?: number) {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'memory', limit],
+    queryFn: () => api.get('/brand/intelligence/memory', { params: { limit } }).then((r) => r.data),
+    staleTime: 30_000,
+  });
+}
+
+export function useCustomerVoice() {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'voice'],
+    queryFn: () => api.get('/brand/intelligence/customer-voice').then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+export function useIngestCustomerVoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { sourceType: string; texts: string[]; sourceUrl?: string }) =>
+      api.post('/brand/intelligence/customer-voice', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'voice'] }),
+  });
+}
+
+export function useCompetitorSnapshots() {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'competitors'],
+    queryFn: () => api.get('/brand/intelligence/competitors').then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+export function useCompetitiveReport() {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'competitive-report'],
+    queryFn: () => api.get('/brand/intelligence/competitors/report').then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useAnalyzeCompetitor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { platform: string; handle: string; websiteUrl?: string }) =>
+      api.post('/brand/intelligence/competitors/analyze', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'intelligence', 'competitors'] }),
+  });
+}
+
+export function useBrandDrift() {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'drift'],
+    queryFn: () => api.get('/brand/intelligence/drift').then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+export function useFullEnrich() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post('/brand/intelligence/enrich').then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['brand', 'intelligence'] });
+      qc.invalidateQueries({ queryKey: ['brand'] });
+    },
+  });
+}
+
+export function useAgentContext(agent: string) {
+  return useQuery({
+    queryKey: ['brand', 'intelligence', 'agent', agent],
+    queryFn: () => api.get(`/brand/intelligence/agent/${agent}`).then((r) => r.data),
+    staleTime: 2 * 60_000,
+    enabled: !!agent,
+  });
+}
