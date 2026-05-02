@@ -6,9 +6,29 @@ const storePath = path.join(process.cwd(), '.brand-local-db.json');
 const SCRAPE_TIMEOUT_MS = 8_000;
 const MAX_INTERNAL_PAGES = 4;
 const MAX_REFERENCE_IMAGES = 18;
+const MAX_PAGE_TEXT_CHARS = 4_000;
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function readEnvValueFromFile(filePath: string, key: string) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const line = content.split('\n').find((entry) => entry.startsWith(`${key}=`));
+    return line ? line.slice(key.length + 1).trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function resolveGeminiApiKey() {
+  return (
+    process.env.GEMINI_API_KEY ||
+    readEnvValueFromFile(path.join(process.cwd(), '.env.local'), 'GEMINI_API_KEY') ||
+    readEnvValueFromFile(path.join(process.cwd(), '..', '..', '.env.local'), 'GEMINI_API_KEY')
+  );
 }
 
 function normalizeUrl(raw: string) {
@@ -135,6 +155,21 @@ function decodeHtmlEntities(value: string) {
     .replace(/&gt;/g, '>');
 }
 
+function extractReadableText(html: string) {
+  return cleanText(
+    decodeHtmlEntities(
+      html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+        .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ')
+        .replace(/<\/(h1|h2|h3|h4|h5|h6|p|li|section|article|div|br)>/gi, '\n')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+\n/g, '\n')
+        .replace(/\n\s+/g, '\n'),
+    ),
+  ).slice(0, MAX_PAGE_TEXT_CHARS);
+}
+
 function extractMetaContent(html: string, selector: 'description' | 'og:description' | 'og:site_name' | 'theme-color') {
   const patterns: Record<typeof selector, RegExp[]> = {
     description: [/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i],
@@ -214,7 +249,11 @@ function inferArchetype(industry: string, tone: string) {
 function pickBrandColors(html: string) {
   const themeColor = extractMetaContent(html, 'theme-color');
   const cssVar = pickFirstMatch(html, /--(?:primary|brand|accent)[^:]*:\s*([^;"]+)/i);
-  const primary = themeColor || cssVar || '#2563eb';
+  const hexPattern = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+  const primaryCandidate = [themeColor, cssVar]
+    .map((value) => value.trim())
+    .find((value) => hexPattern.test(value));
+  const primary = primaryCandidate || '#2563eb';
   return {
     primary,
     secondary: primary === '#2563eb' ? ['#0f172a', '#e2e8f0'] : ['#0f172a', '#f8fafc'],
@@ -493,6 +532,7 @@ async function scrapePage(url: string) {
       logoUrl: extractLogoUrl(html, url),
       images: collectImagesFromHtml(html, url),
       internalLinks: extractInternalLinks(html, url),
+      textSample: extractReadableText(html),
     };
   } catch {
     return {
@@ -504,6 +544,7 @@ async function scrapePage(url: string) {
       logoUrl: '',
       images: [] as string[],
       internalLinks: [] as string[],
+      textSample: '',
     };
   }
 }
@@ -596,6 +637,213 @@ function buildDocuments(profile: {
   };
 }
 
+function stripCodeFences(value: string) {
+  return value
+    .replace(/^```(?:json|markdown)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+}
+
+async function callGeminiText(prompt: string): Promise<string> {
+  const apiKey = resolveGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.4,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini request failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const text = payload?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? '').join('') ?? '';
+  if (!text) {
+    throw new Error('Gemini returned an empty response');
+  }
+
+  return stripCodeFences(text);
+}
+
+type DocumentGenerationInput = {
+  brandName: string;
+  websiteUrl: string;
+  industry: string;
+  valueProposition: string;
+  productDescription: string;
+  targetAudience: string;
+  tone: string;
+  voiceCharacteristics: string[];
+  contentPillars: string[];
+  brandColors: { primary?: string; secondary: string[]; accent?: string };
+  logoUrl?: string;
+  referenceImages: string[];
+  pagesScraped: string[];
+  pageSummaries: Array<{ url: string; title: string; description: string; textSample: string }>;
+};
+
+function buildSharedDocumentContext(input: DocumentGenerationInput) {
+  const pageSummaryText = input.pageSummaries
+    .map((page, index) => [
+      `## Page ${index + 1}`,
+      `URL: ${page.url}`,
+      `Title: ${page.title || 'Not available'}`,
+      `Description: ${page.description || 'Not available'}`,
+      `Content Excerpt:`,
+      page.textSample || 'Not available',
+    ].join('\n'))
+    .join('\n\n');
+
+  return `
+Brand summary:
+- Brand name: ${input.brandName}
+- Website: ${input.websiteUrl}
+- Industry: ${input.industry}
+- Product description: ${input.productDescription}
+- Value proposition: ${input.valueProposition}
+- Target audience: ${input.targetAudience}
+- Tone: ${input.tone}
+- Voice characteristics: ${input.voiceCharacteristics.join(', ') || 'Not available'}
+- Content pillars: ${input.contentPillars.join(', ') || 'Not available'}
+- Brand colors: primary ${input.brandColors.primary ?? 'N/A'}, secondary ${input.brandColors.secondary.join(', ') || 'N/A'}, accent ${input.brandColors.accent ?? 'N/A'}
+- Logo URL: ${input.logoUrl || 'Not available'}
+- Scraped pages: ${input.pagesScraped.join(', ') || 'Not available'}
+- Reference images captured: ${input.referenceImages.length}
+
+Source website excerpts:
+${pageSummaryText || 'No readable source text was captured.'}
+`.trim();
+}
+
+function buildSingleDocumentPrompt(
+  kind: keyof BrandDocumentSet,
+  input: DocumentGenerationInput,
+) {
+  const shared = buildSharedDocumentContext(input);
+
+  const instructions: Record<keyof BrandDocumentSet, string> = {
+    business_profile: `
+Write a detailed markdown Business Profile.
+Required sections:
+- # Business Profile
+- ## Overview
+- ## Core Offers
+- ## Customer Focus
+- ## Key Messaging Themes
+- ## Brand Strengths
+`,
+    market_research: `
+Write a markdown Market Research brief.
+Required sections:
+- # Market Research
+- ## Category Snapshot
+- ## Audience Signals
+- ## Differentiation Cues
+- ## Opportunities
+- ## Risks And Gaps
+`,
+    social_strategy: `
+Write a markdown Social Strategy brief.
+Required sections:
+- # Social Strategy
+- ## Brand Voice In Social
+- ## Content Pillars
+- ## Message Angles
+- ## Campaign Concepts
+- ## CTA Direction
+`,
+    brand_guidelines: `
+Write markdown Brand Guidelines.
+Required sections:
+- # Brand Guidelines
+- ## Voice And Tone
+- ## Messaging Rules
+- ## Do And Don't
+- ## Color Usage
+- ## Consistency Principles
+`,
+    visual_intelligence: `
+Write markdown Visual Intelligence.
+Required sections:
+- # Visual Intelligence
+- ## Logo And Asset Notes
+- ## Color Observations
+- ## Image Themes
+- ## Composition Patterns
+- ## Creative Direction
+`,
+  };
+
+  return `
+You are a senior brand strategist and market researcher.
+
+Generate one polished markdown document for a brand knowledge base using ONLY the information provided below.
+You may synthesize and organize the material, but do not invent factual claims such as funding, named competitors, pricing, founder history, customer counts, or product details not supported by the source material.
+When something is not clearly supported, say "Not clearly stated on the website".
+
+Return ONLY markdown for the requested document.
+The document must contain rich markdown with:
+- a title
+- multiple sections with ## headings
+- concrete bullets where useful
+- clear, human-readable writing
+
+${instructions[kind]}
+
+${shared}
+`.trim();
+}
+
+async function generateDocuments(input: DocumentGenerationInput) {
+  const fallback = buildDocuments(input);
+
+  try {
+    const keys: Array<keyof BrandDocumentSet> = [
+      'business_profile',
+      'market_research',
+      'social_strategy',
+      'brand_guidelines',
+      'visual_intelligence',
+    ];
+
+    const generatedEntries = await Promise.all(
+      keys.map(async (key) => {
+        const markdown = await callGeminiText(buildSingleDocumentPrompt(key, input));
+        return [key, markdown] as const;
+      }),
+    );
+
+    const generated = Object.fromEntries(generatedEntries) as Partial<BrandDocumentSet>;
+    return {
+      business_profile: generated.business_profile?.trim() || fallback.business_profile,
+      market_research: generated.market_research?.trim() || fallback.market_research,
+      social_strategy: generated.social_strategy?.trim() || fallback.social_strategy,
+      brand_guidelines: generated.brand_guidelines?.trim() || fallback.brand_guidelines,
+      visual_intelligence: generated.visual_intelligence?.trim() || fallback.visual_intelligence,
+    } satisfies BrandDocumentSet;
+  } catch (error) {
+    console.error('[brand-store] Gemini document generation failed:', error);
+    return fallback;
+  }
+}
+
 export async function analyzeWebsite(websiteUrl: string) {
   const normalizedUrl = normalizeUrl(websiteUrl);
   const current = readBrandProfile();
@@ -630,6 +878,27 @@ export async function analyzeWebsite(websiteUrl: string) {
   const referenceImages = finalizeReferenceImages(logoUrl, allImages);
   const scrapedPages = Array.from(new Set(pages.map((page) => page.url).filter(Boolean)));
   const now = nowIso();
+  const documents = await generateDocuments({
+    brandName,
+    websiteUrl: normalizedUrl,
+    industry,
+    valueProposition,
+    productDescription,
+    targetAudience,
+    tone,
+    voiceCharacteristics,
+    contentPillars,
+    brandColors,
+    logoUrl,
+    referenceImages,
+    pagesScraped: scrapedPages,
+    pageSummaries: pages.map((page) => ({
+      url: page.url,
+      title: page.title,
+      description: page.description,
+      textSample: page.textSample,
+    })),
+  });
 
   const nextProfile: BrandProfileRecord = {
     ...current,
@@ -648,21 +917,7 @@ export async function analyzeWebsite(websiteUrl: string) {
     pagesScraped: scrapedPages,
     lastValidatedAt: now,
     updatedAt: now,
-    documents: buildDocuments({
-      brandName,
-      websiteUrl: normalizedUrl,
-      industry,
-      valueProposition,
-      productDescription,
-      targetAudience,
-      tone,
-      voiceCharacteristics,
-      contentPillars,
-      brandColors,
-      logoUrl,
-      referenceImages,
-      pagesScraped: scrapedPages,
-    }),
+    documents,
     validationHistory: [
       {
         id: crypto.randomUUID(),
