@@ -12,7 +12,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   private connected = false;
 
   constructor(private readonly configService: ConfigService) {
-    const brokers = this.configService.get<string>('kafka.brokers', 'localhost:9092').split(',');
+    const brokers = this.configService.get<string[]>('kafka.brokers') ?? ['localhost:9092'];
     const clientId = this.configService.get<string>('kafka.clientId', 'loraloop-api');
 
     this.kafka = new Kafka({
