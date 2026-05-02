@@ -14,6 +14,9 @@ import { EventsModule } from './events/events.module';
 // Phase 2 — Plugin System
 import { PluginsModule } from './plugins/plugins.module';
 
+// LLM Router — multi-provider AI routing
+import { LlmRouterModule } from './llm-router/llm-router.module';
+
 // Phase 4 — AI Agents
 import { AgentsModule } from './agents/agents.module';
 
@@ -84,6 +87,7 @@ import storageConfig from './config/storage.config';
     PluginsModule,
 
     // Phase 4 — AI Agents
+    LlmRouterModule,
     AgentsModule,
 
     // Phase 5 — Queue & Publisher

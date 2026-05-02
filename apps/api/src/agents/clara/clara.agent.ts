@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
+import { LlmRouterService } from '../../llm-router/llm-router.service';
 import { CLARA_SYSTEM_PROMPT } from './clara.prompts';
 import { buildClaraTools } from './clara.tools';
 
@@ -29,9 +30,14 @@ export class ClaraAgent extends BaseAgent {
   protected readonly systemPrompt = CLARA_SYSTEM_PROMPT;
   protected readonly tools: ToolDefinition[] = buildClaraTools();
 
+  constructor(router: LlmRouterService) {
+    super();
+    this.router = router;
+  }
+
   async generateContent(brief: ContentBrief): Promise<AgentRunResult> {
     const prompt = this.buildBriefPrompt(brief);
-    return this.run(prompt, { brief }, { temperature: 0.8, maxTokens: 8192 });
+    return this.run(prompt, { brief }, { temperature: 0.8, maxTokens: 8192, taskType: 'clara-generate-content' });
   }
 
   async adaptForPlatform(
@@ -44,13 +50,13 @@ export class ClaraAgent extends BaseAgent {
       `Respect the platform's character limits, style conventions, and the brand tone (${brand.tone}). ` +
       `Return the adapted caption and a hashtag list.\n\nMaster caption:\n${masterCaption}`;
 
-    return this.run(prompt, { platform, brand }, { temperature: 0.7 });
+    return this.run(prompt, { platform, brand }, { temperature: 0.7, taskType: 'clara-adapt-platform' });
   }
 
   async refineDraft(draft: string, feedback: string, platform: string): Promise<AgentRunResult> {
     const prompt =
       `Refine the following ${platform} post draft based on this feedback: "${feedback}"\n\nDraft:\n${draft}`;
-    return this.run(prompt, {}, { temperature: 0.6 });
+    return this.run(prompt, {}, { temperature: 0.6, taskType: 'clara-adapt-platform' });
   }
 
   private buildBriefPrompt(brief: ContentBrief): string {

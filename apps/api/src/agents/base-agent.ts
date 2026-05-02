@@ -1,16 +1,20 @@
 import { Logger } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
+import { LlmRouterService } from '../llm-router/llm-router.service';
 import {
-  MessageParam,
-  Tool,
-  ToolUseBlock,
-  Message,
-} from '@anthropic-ai/sdk/resources/messages';
+  LlmMessage,
+  LlmTool,
+  LlmToolCall,
+  RoutingConfig,
+} from '../llm-router/llm-router.types';
 
 export interface AgentRunOptions {
   maxTurns?: number;
   temperature?: number;
   maxTokens?: number;
+  /** Task type key used for routing (e.g. 'clara-generate-content') */
+  taskType?: string;
+  /** Override routing strategy for this run */
+  routing?: RoutingConfig;
 }
 
 export interface AgentRunResult {
@@ -18,6 +22,9 @@ export interface AgentRunResult {
   tokensUsed: number;
   turns: number;
   toolCallCount: number;
+  modelUsed?: string;
+  providerUsed?: string;
+  costUsd?: number;
 }
 
 export interface ToolDefinition {
@@ -32,13 +39,10 @@ export abstract class BaseAgent {
   protected abstract readonly systemPrompt: string;
   protected abstract readonly tools: ToolDefinition[];
   protected readonly logger: Logger;
-  private readonly anthropic: Anthropic;
+  protected router?: LlmRouterService;
 
   constructor() {
     this.logger = new Logger(this.constructor.name);
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
   }
 
   async run(
@@ -46,107 +50,116 @@ export abstract class BaseAgent {
     context: Record<string, unknown> = {},
     options: AgentRunOptions = {},
   ): Promise<AgentRunResult> {
-    const { maxTurns = 10, temperature = 0.7, maxTokens = 4096 } = options;
+    const { maxTurns = 10, temperature = 0.7, maxTokens = 4096, taskType, routing } = options;
 
-    const messages: MessageParam[] = [
+    if (!this.router) {
+      throw new Error(
+        `${this.agentName}: LlmRouterService not injected. ` +
+        'Assign this.router inside the subclass constructor.',
+      );
+    }
+
+    const tools: LlmTool[] = this.tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    }));
+
+    const messages: LlmMessage[] = [
       { role: 'user', content: this.buildUserMessage(userMessage, context) },
     ];
 
-    const anthropicTools: Tool[] = this.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: {
-        type: 'object' as const,
-        ...t.inputSchema,
-      },
-    }));
-
     let totalTokens = 0;
+    let totalCost = 0;
     let turns = 0;
     let toolCallCount = 0;
     let finalOutput = '';
+    let lastModel: string | undefined;
+    let lastProvider: string | undefined;
 
     while (turns < maxTurns) {
       turns++;
 
-      const response: Message = await this.anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-7',
-        max_tokens: maxTokens,
-        temperature,
-        system: this.systemPrompt,
-        tools: anthropicTools.length > 0 ? anthropicTools : undefined,
+      const response = await this.router.route({
+        systemPrompt: this.systemPrompt,
         messages,
+        tools: tools.length > 0 ? tools : undefined,
+        maxTokens,
+        temperature,
+        taskType,
+        routing,
       });
 
-      totalTokens += response.usage.input_tokens + response.usage.output_tokens;
+      lastModel = response.model;
+      lastProvider = response.provider;
+      totalTokens += response.usage.inputTokens + response.usage.outputTokens;
+      totalCost += response.costUsd;
 
-      if (response.stop_reason === 'end_turn') {
-        finalOutput = response.content
-          .filter((b) => b.type === 'text')
-          .map((b) => (b as { type: 'text'; text: string }).text)
-          .join('\n');
+      if (response.stopReason === 'end_turn' || response.stopReason === 'max_tokens') {
+        finalOutput = response.content;
         break;
       }
 
-      if (response.stop_reason === 'tool_use') {
-        const toolUseBlocks = response.content.filter(
-          (b): b is ToolUseBlock => b.type === 'tool_use',
-        );
-
-        messages.push({ role: 'assistant', content: response.content });
+      if (response.stopReason === 'tool_use' && response.toolCalls?.length) {
+        messages.push({
+          role: 'assistant',
+          content: this.buildAssistantContent(response.content, response.toolCalls),
+        });
 
         const toolResults = await Promise.all(
-          toolUseBlocks.map(async (block) => {
+          response.toolCalls.map(async (tc: LlmToolCall) => {
             toolCallCount++;
-            const tool = this.tools.find((t) => t.name === block.name);
+            const tool = this.tools.find((t) => t.name === tc.name);
             if (!tool) {
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: block.id,
-                content: `Tool ${block.name} not found`,
-                is_error: true,
-              };
+              return { toolUseId: tc.id, toolName: tc.name, result: `Tool ${tc.name} not found`, isError: true };
             }
             try {
-              const result = await tool.handler(block.input as Record<string, unknown>);
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: block.id,
-                content: JSON.stringify(result),
-              };
+              const result = await tool.handler(tc.input);
+              return { toolUseId: tc.id, toolName: tc.name, result, isError: false };
             } catch (err) {
-              this.logger.error(`Tool ${block.name} failed`, err);
-              return {
-                type: 'tool_result' as const,
-                tool_use_id: block.id,
-                content: String(err),
-                is_error: true,
-              };
+              this.logger.error(`Tool ${tc.name} failed`, err);
+              return { toolUseId: tc.id, toolName: tc.name, result: String(err), isError: true };
             }
           }),
         );
 
-        messages.push({ role: 'user', content: toolResults });
+        messages.push({
+          role: 'user',
+          content: toolResults.map((r) => ({
+            type: 'tool_result' as const,
+            toolUseId: r.toolUseId,
+            toolName: r.toolName,
+            toolResult: r.result,
+            isError: r.isError,
+          })),
+        });
+
         continue;
       }
 
-      // max_tokens or other stop reason
-      finalOutput = response.content
-        .filter((b) => b.type === 'text')
-        .map((b) => (b as { type: 'text'; text: string }).text)
-        .join('\n');
+      finalOutput = response.content;
       break;
     }
 
     this.logger.debug(
-      `${this.agentName} run complete: turns=${turns} tokens=${totalTokens} tools=${toolCallCount}`,
+      `${this.agentName}: turns=${turns} tokens=${totalTokens} tools=${toolCallCount} ` +
+      `model=${lastModel} provider=${lastProvider} cost=$${totalCost.toFixed(6)}`,
     );
 
-    return { output: finalOutput, tokensUsed: totalTokens, turns, toolCallCount };
+    return { output: finalOutput, tokensUsed: totalTokens, turns, toolCallCount, modelUsed: lastModel, providerUsed: lastProvider, costUsd: totalCost };
   }
 
   private buildUserMessage(message: string, context: Record<string, unknown>): string {
     if (Object.keys(context).length === 0) return message;
     return `${message}\n\n<context>\n${JSON.stringify(context, null, 2)}\n</context>`;
+  }
+
+  private buildAssistantContent(text: string, toolCalls: LlmToolCall[]): LlmMessage['content'] {
+    const blocks: any[] = [];
+    if (text) blocks.push({ type: 'text', text });
+    for (const tc of toolCalls) {
+      blocks.push({ type: 'tool_use', toolUseId: tc.id, toolName: tc.name, toolInput: tc.input });
+    }
+    return blocks;
   }
 }

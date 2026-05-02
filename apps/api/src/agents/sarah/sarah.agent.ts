@@ -1,5 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
+import { LlmRouterService } from '../../llm-router/llm-router.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { SARAH_SYSTEM_PROMPT } from './sarah.prompts';
@@ -32,9 +33,11 @@ export class SarahAgent extends BaseAgent {
 
   constructor(
     private readonly prisma: PrismaService,
+    router: LlmRouterService,
     @Optional() private readonly notifications: NotificationsService,
   ) {
     super();
+    this.router = router;
     this.tools = buildSarahTools(this.prisma, this.notifications);
   }
 
@@ -51,7 +54,7 @@ export class SarahAgent extends BaseAgent {
       `Return a JSON object with: scheduledFor (ISO8601), reasoning, confidenceScore (0-1), ` +
       `alternativeSlots (array of 2 ISO8601 strings), dataSource ("real_data" | "industry_baseline").`;
 
-    return this.run(prompt, { decision }, { temperature: 0.3 });
+    return this.run(prompt, { decision }, { temperature: 0.3, taskType: 'get_optimal_posting_time' });
   }
 
   async processEngagement(item: EngagementItem): Promise<AgentRunResult> {
@@ -64,7 +67,7 @@ export class SarahAgent extends BaseAgent {
       `Analyze sentiment, determine if escalation is needed, and draft an appropriate reply. ` +
       `Return JSON with: sentiment, sentimentScore, shouldEscalate, escalationReason (if applicable), replyText, replyApproved (boolean).`;
 
-    return this.run(prompt, { item }, { temperature: 0.5 });
+    return this.run(prompt, { item }, { temperature: 0.5, taskType: 'sarah-process-engagement' });
   }
 
   async planContentCalendar(
@@ -78,6 +81,6 @@ export class SarahAgent extends BaseAgent {
       `Distribute posts to avoid fatigue, maximize algorithm engagement, and respect platform cadence rules. ` +
       `Return a JSON array with: contentId, platform, scheduledFor (ISO8601), reasoning.`;
 
-    return this.run(prompt, { posts, timezone, lookAheadDays }, { temperature: 0.4 });
+    return this.run(prompt, { posts, timezone, lookAheadDays }, { temperature: 0.4, taskType: 'plan_content_calendar' });
   }
 }
