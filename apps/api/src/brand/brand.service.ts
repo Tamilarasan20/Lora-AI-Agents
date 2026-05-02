@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException, Optional } from '@nestjs/common';
+import { BrandAnalysisJobStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventBusService } from '../events/event-bus.service';
 import { KAFKA_TOPICS } from '../events/event.types';
@@ -8,6 +9,32 @@ import { StorageService } from '../storage/storage.service';
 import { LlmRouterService } from '../llm-router/llm-router.service';
 import { BrandMemoryService } from './intelligence/brand-memory.service';
 import { BrandCrawlerService } from './brand-crawler.service';
+
+// ─── Pomelli-style job stage definitions ────────────────────────────────────
+
+export type BrandAnalysisStageKey =
+  | 'crawl'
+  | 'images'
+  | 'extract'
+  | 'documents'
+  | 'finalize';
+
+export interface BrandAnalysisStage {
+  key: BrandAnalysisStageKey;
+  label: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+}
+
+export const BRAND_ANALYSIS_STAGES: ReadonlyArray<{ key: BrandAnalysisStageKey; label: string; weight: number }> = [
+  { key: 'crawl',     label: 'Crawling website',         weight: 25 },
+  { key: 'images',    label: 'Saving brand assets',      weight: 15 },
+  { key: 'extract',   label: 'AI brand intelligence',    weight: 35 },
+  { key: 'documents', label: 'Writing knowledge docs',   weight: 15 },
+  { key: 'finalize',  label: 'Finalizing review',        weight: 10 },
+];
 
 export interface Competitor {
   id: string;
@@ -73,27 +100,79 @@ export class BrandService {
     const url = this.normalizeUrl(websiteUrl);
     this.logger.log(`[PIPELINE] Starting brand analysis for user=${userId}: ${url}`);
 
-    // ── STAGE 1: Deep Multi-Page Crawl ───────────────────────────────────────
-    this.logger.log('[STAGE 1] Crawling...');
-    const crawled = await this.crawler.crawl(url);
+    const draft = await this.runDraftPipeline(userId, url);
+    await this.persistDraft(userId, url, draft);
 
-    // ── STAGE 2: Download brand assets to R2 ─────────────────────────────────
+    return draft;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POMELLI-STYLE ASYNC FLOW
+  // Phase A: runDraftPipeline (stages 1–4) → returns draft, no DB write to BrandKnowledge
+  // Phase B: persistDraft (stages 5–10) → user-approved write
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Runs the *non-destructive* analysis: crawl, image downloads, AI extraction,
+   * document generation. Returns a BrandAnalysisResult draft for user review.
+   * Optional `onStage` callback fires before/after each stage so a job processor
+   * can update progress in the DB.
+   */
+  async runDraftPipeline(
+    userId: string,
+    websiteUrl: string,
+    onStage?: (key: BrandAnalysisStageKey, phase: 'start' | 'end', error?: string) => Promise<void> | void,
+  ): Promise<BrandAnalysisResult> {
+    const url = this.normalizeUrl(websiteUrl);
+    const fire = async (key: BrandAnalysisStageKey, phase: 'start' | 'end', error?: string) => {
+      try { await onStage?.(key, phase, error); } catch { /* progress hook is best-effort */ }
+    };
+
+    await fire('crawl', 'start');
+    const crawled = await this.crawler.crawl(url).catch(async (err) => {
+      await fire('crawl', 'end', String(err));
+      throw err;
+    });
+    await fire('crawl', 'end');
+
+    await fire('images', 'start');
     const { logoUrl, savedImageUrls } = await this.downloadImages(
       userId, crawled.imageUrls, crawled.logoUrl, url,
     );
+    await fire('images', 'end');
 
-    // ── STAGE 3: Gemini 2.5 Pro — full brand intelligence extraction ──────────
-    this.logger.log('[STAGE 3] Gemini 2.5 Pro extraction...');
+    await fire('extract', 'start');
     const profile = await this.extractWithGemini(url, crawled);
+    await fire('extract', 'end');
 
-    // ── STAGE 4: Generate 5 Knowledge Documents ───────────────────────────────
-    this.logger.log('[STAGE 4] Generating documents...');
+    await fire('documents', 'start');
     const documents = await this.generateDocuments(userId, url, profile, logoUrl, savedImageUrls);
+    await fire('documents', 'end');
 
-    // ── STAGE 5: Snapshot previous → record memory changes ───────────────────
+    return {
+      ...profile,
+      logoUrl,
+      imageUrls: savedImageUrls,
+      pagesScraped: crawled.pagesVisited,
+      documents,
+    } as BrandAnalysisResult;
+  }
+
+  /**
+   * Persist a (possibly user-edited) draft to the live BrandKnowledge row,
+   * write the audit log, record memory deltas, embed, and emit Kafka.
+   * This is "stages 5–10" of the original pipeline — the part the user must approve.
+   */
+  async persistDraft(userId: string, websiteUrl: string, draft: BrandAnalysisResult): Promise<void> {
+    const url = this.normalizeUrl(websiteUrl);
+    const profile: any = draft;
+    const logoUrl = draft.logoUrl;
+    const pagesVisited = draft.pagesScraped ?? [];
+    const imagesFound = (draft.imageUrls ?? []).length;
+
+    // Snapshot previous → record memory changes
     const previousProfile = await this.prisma.brandKnowledge.findUnique({ where: { userId } });
 
-    // ── STAGE 6: Persist to DB ────────────────────────────────────────────────
     const dbData = {
       websiteUrl: url,
       brandName: profile.brandName,
@@ -115,7 +194,7 @@ export class BrandService {
       marketIntelligence: (profile.marketIntelligence ?? {}) as object,
       socialStrategy: (profile.socialStrategy ?? {}) as object,
       visualIntelligence: (profile.visualIntelligence ?? {}) as object,
-      pagesScraped: crawled.pagesVisited,
+      pagesScraped: pagesVisited,
       lastValidatedAt: new Date(),
     };
 
@@ -138,8 +217,8 @@ export class BrandService {
         missingInsights: [] as any,
         validationWarnings: [] as any,
         overallScore: 1,
-        pagesScraped: crawled.pagesVisited.length,
-        imagesFound: crawled.imageUrls.length,
+        pagesScraped: pagesVisited.length,
+        imagesFound,
       },
     }).catch((err) => this.logger.warn(`Audit log failed: ${err}`));
 
@@ -174,15 +253,164 @@ export class BrandService {
       payload: { brandId: userId, userId, changedFields: ['full_analysis'] },
     }).catch(() => null);
 
-    this.logger.log(`[PIPELINE COMPLETE] Brand intelligence built for user=${userId}: ${profile.brandName}`);
+    this.logger.log(`[PIPELINE COMPLETE] Brand intelligence persisted for user=${userId}: ${profile.brandName}`);
+  }
 
-    return {
-      ...profile,
-      logoUrl,
-      imageUrls: savedImageUrls,
-      pagesScraped: crawled.pagesVisited,
-      documents,
-    } as BrandAnalysisResult;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POMELLI JOB LIFECYCLE — enqueue, get, list, update-draft, approve, cancel
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Create a job row + return it. The actual work happens in a BullMQ processor. */
+  async createAnalysisJob(userId: string, websiteUrl: string) {
+    const url = this.normalizeUrl(websiteUrl);
+    const stages = BRAND_ANALYSIS_STAGES.map<BrandAnalysisStage>((s) => ({
+      key: s.key, label: s.label, status: 'pending',
+    }));
+    return this.prisma.brandAnalysisJob.create({
+      data: {
+        userId,
+        websiteUrl: url,
+        status: BrandAnalysisJobStatus.QUEUED,
+        progressPct: 0,
+        stages: stages as unknown as Prisma.JsonArray,
+      },
+    });
+  }
+
+  async getAnalysisJob(userId: string, jobId: string) {
+    const job = await this.prisma.brandAnalysisJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new NotFoundException('Analysis job not found');
+    if (job.userId !== userId) throw new ForbiddenException();
+    return job;
+  }
+
+  async listAnalysisJobs(userId: string, limit = 10) {
+    return this.prisma.brandAnalysisJob.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  async markJobStarted(jobId: string, bullJobId?: string) {
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: {
+        status: BrandAnalysisJobStatus.RUNNING,
+        startedAt: new Date(),
+        bullJobId: bullJobId ?? null,
+      },
+    });
+  }
+
+  /** Called by the processor before/after each stage. Updates progressPct + stages JSON. */
+  async updateJobStage(
+    jobId: string,
+    stageKey: BrandAnalysisStageKey,
+    phase: 'start' | 'end',
+    error?: string,
+  ) {
+    const job = await this.prisma.brandAnalysisJob.findUnique({ where: { id: jobId } });
+    if (!job) return;
+    const stages = (job.stages as unknown as BrandAnalysisStage[]) ?? [];
+    const idx = stages.findIndex((s) => s.key === stageKey);
+    if (idx === -1) return;
+
+    const now = new Date().toISOString();
+    if (phase === 'start') {
+      stages[idx] = { ...stages[idx], status: 'running', startedAt: now };
+    } else {
+      stages[idx] = {
+        ...stages[idx],
+        status: error ? 'failed' : 'completed',
+        completedAt: now,
+        ...(error ? { error } : {}),
+      };
+    }
+
+    // Compute weighted progress
+    let pct = 0;
+    for (const s of stages) {
+      const weight = BRAND_ANALYSIS_STAGES.find((bs) => bs.key === s.key)?.weight ?? 0;
+      if (s.status === 'completed') pct += weight;
+      else if (s.status === 'running') pct += weight * 0.5;
+    }
+
+    await this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: {
+        currentStage: phase === 'start' ? stageKey : stages[idx].status === 'completed' ? null : stageKey,
+        progressPct: Math.min(99, Math.round(pct)),
+        stages: stages as unknown as Prisma.JsonArray,
+      },
+    });
+  }
+
+  async markJobAwaitingReview(jobId: string, draft: BrandAnalysisResult) {
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: {
+        status: BrandAnalysisJobStatus.AWAITING_REVIEW,
+        progressPct: 100,
+        currentStage: null,
+        completedAt: new Date(),
+        draftResult: draft as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async markJobFailed(jobId: string, errorMessage: string) {
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: {
+        status: BrandAnalysisJobStatus.FAILED,
+        errorMessage: errorMessage.slice(0, 2000),
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  /** Allow the user to edit the draft before approving. Shallow merge. */
+  async updateAnalysisJobDraft(userId: string, jobId: string, patch: Partial<BrandAnalysisResult>) {
+    const job = await this.getAnalysisJob(userId, jobId);
+    if (job.status !== BrandAnalysisJobStatus.AWAITING_REVIEW) {
+      throw new ForbiddenException('Job is not awaiting review');
+    }
+    const current = (job.draftResult as unknown as BrandAnalysisResult) ?? ({} as BrandAnalysisResult);
+    const merged = { ...current, ...patch } as BrandAnalysisResult;
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: { draftResult: merged as unknown as Prisma.InputJsonValue },
+    });
+  }
+
+  /** Apply the (possibly edited) draft to the live brand profile. */
+  async approveAnalysisJob(userId: string, jobId: string) {
+    const job = await this.getAnalysisJob(userId, jobId);
+    if (job.status !== BrandAnalysisJobStatus.AWAITING_REVIEW) {
+      throw new ForbiddenException('Only AWAITING_REVIEW jobs can be approved');
+    }
+    const draft = job.draftResult as unknown as BrandAnalysisResult;
+    if (!draft) throw new ForbiddenException('Draft missing');
+
+    await this.persistDraft(userId, job.websiteUrl, draft);
+
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: { status: BrandAnalysisJobStatus.APPROVED, approvedAt: new Date() },
+    });
+  }
+
+  async cancelAnalysisJob(userId: string, jobId: string) {
+    const job = await this.getAnalysisJob(userId, jobId);
+    const terminal: BrandAnalysisJobStatus[] = [BrandAnalysisJobStatus.APPROVED, BrandAnalysisJobStatus.CANCELLED];
+    if (terminal.includes(job.status)) {
+      return job;
+    }
+    return this.prisma.brandAnalysisJob.update({
+      where: { id: jobId },
+      data: { status: BrandAnalysisJobStatus.CANCELLED, cancelledAt: new Date() },
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

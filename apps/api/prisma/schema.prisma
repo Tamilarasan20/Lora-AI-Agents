@@ -52,6 +52,7 @@ model User {
   competitorSnapshots      CompetitorSnapshot[]
   brandDriftReports        BrandDriftReport[]
   brandValidationLogs      BrandValidationLog[]
+  brandAnalysisJobs        BrandAnalysisJob[]
 
   @@index([email])
   @@index([status])
@@ -904,6 +905,44 @@ model BrandValidationLog {
   @@index([userId])
   @@index([validatedAt(sort: Desc)])
   @@map("brand_validation_logs")
+}
+
+// ============================================
+// BRAND ANALYSIS JOBS — Pomelli-style async generation + review flow
+// ============================================
+
+enum BrandAnalysisJobStatus {
+  QUEUED
+  RUNNING
+  AWAITING_REVIEW
+  APPROVED
+  FAILED
+  CANCELLED
+}
+
+model BrandAnalysisJob {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String                 @db.Uuid
+  websiteUrl   String
+  status       BrandAnalysisJobStatus @default(QUEUED)
+  currentStage String?                @db.VarChar(64)
+  progressPct  Int                    @default(0)
+  stages       Json                   @default("[]") // [{key,label,status,startedAt?,completedAt?,error?}]
+  draftResult  Json?
+  errorMessage String?
+  bullJobId    String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  startedAt    DateTime?
+  completedAt  DateTime?
+  approvedAt   DateTime?
+  cancelledAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("brand_analysis_jobs")
 }
 
 // ============================================

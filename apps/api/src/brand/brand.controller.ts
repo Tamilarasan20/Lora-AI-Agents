@@ -2,9 +2,11 @@ import {
   Body, Controller, Delete, Get, Param, Patch, Post, Put, Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsString, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
+import { IsArray, IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { BrandService } from './brand.service';
+import { BrandService, BrandAnalysisResult } from './brand.service';
+import { QueueService } from '../queue/queue.service';
+import { QUEUE_NAMES, JOB_NAMES } from '../queue/queue.constants';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthUser } from '../auth/strategies/jwt.strategy';
@@ -15,7 +17,13 @@ import { CustomerVoiceInput } from './intelligence/customer-voice.service';
 import { Competitor } from './brand.service';
 
 class AnalyzeWebsiteDto {
-  @ApiProperty() @IsString() @IsUrl() websiteUrl: string;
+  @ApiProperty({ example: 'https://stripe.com' }) @IsString() websiteUrl: string;
+}
+
+class UpdateDraftDto {
+  // Free-form patch — every field on BrandAnalysisResult is optional.
+  // We don't strictly validate to keep the review UX flexible.
+  [key: string]: unknown;
 }
 
 class StringArrayDto {
@@ -71,6 +79,7 @@ export class BrandController {
   constructor(
     private readonly brandService: BrandService,
     private readonly intel: BrandIntelligenceService,
+    private readonly queue: QueueService,
   ) {}
 
   @Get()
@@ -139,10 +148,68 @@ export class BrandController {
     return this.brandService.addProhibitedWords(user.id, dto.items);
   }
 
+  // ─── Pomelli-style async analyze flow ────────────────────────────────────
+  // 1. POST /brand/analyze-website          → creates job + enqueues BullMQ work, returns { jobId }
+  // 2. GET  /brand/analyze-website/jobs/:id → poll for status & progress
+  // 3. GET  /brand/analyze-website/jobs/:id/draft → review draft when AWAITING_REVIEW
+  // 4. PATCH /brand/analyze-website/jobs/:id/draft → user edits before approve
+  // 5. POST /brand/analyze-website/jobs/:id/approve → commit draft to BrandKnowledge
+  // 6. POST /brand/analyze-website/jobs/:id/cancel  → abort
+
   @Post('analyze-website')
-  @ApiOperation({ summary: 'Scrape website and auto-fill brand profile via AI' })
-  analyzeWebsite(@CurrentUser() user: AuthUser, @Body() dto: AnalyzeWebsiteDto) {
-    return this.brandService.analyzeWebsite(user.id, dto.websiteUrl);
+  @ApiOperation({ summary: 'Start an async brand-knowledge analysis job (Pomelli-style)' })
+  async startAnalyzeWebsite(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: AnalyzeWebsiteDto,
+  ) {
+    const job = await this.brandService.createAnalysisJob(user.id, dto.websiteUrl);
+    await this.queue.addJob(
+      QUEUE_NAMES.BRAND_ANALYZE,
+      JOB_NAMES.BRAND_ANALYZE_WEBSITE,
+      { jobId: job.id, userId: user.id, websiteUrl: job.websiteUrl },
+    );
+    return { jobId: job.id, status: job.status, websiteUrl: job.websiteUrl };
+  }
+
+  @Get('analyze-website/jobs')
+  @ApiOperation({ summary: 'List recent brand analysis jobs' })
+  listAnalyzeJobs(@CurrentUser() user: AuthUser, @Query('limit') limit?: string) {
+    return this.brandService.listAnalysisJobs(user.id, limit ? parseInt(limit, 10) : 10);
+  }
+
+  @Get('analyze-website/jobs/:jobId')
+  @ApiOperation({ summary: 'Get brand analysis job status & progress' })
+  getAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
+    return this.brandService.getAnalysisJob(user.id, jobId);
+  }
+
+  @Get('analyze-website/jobs/:jobId/draft')
+  @ApiOperation({ summary: 'Get the draft brand knowledge for review' })
+  async getAnalyzeJobDraft(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
+    const job = await this.brandService.getAnalysisJob(user.id, jobId);
+    return { status: job.status, draft: job.draftResult };
+  }
+
+  @Patch('analyze-website/jobs/:jobId/draft')
+  @ApiOperation({ summary: 'Edit draft fields before approving' })
+  patchAnalyzeJobDraft(
+    @CurrentUser() user: AuthUser,
+    @Param('jobId') jobId: string,
+    @Body() patch: UpdateDraftDto,
+  ) {
+    return this.brandService.updateAnalysisJobDraft(user.id, jobId, patch as Partial<BrandAnalysisResult>);
+  }
+
+  @Post('analyze-website/jobs/:jobId/approve')
+  @ApiOperation({ summary: 'Approve the draft and commit to brand profile' })
+  approveAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
+    return this.brandService.approveAnalysisJob(user.id, jobId);
+  }
+
+  @Post('analyze-website/jobs/:jobId/cancel')
+  @ApiOperation({ summary: 'Cancel a queued or running brand analysis job' })
+  cancelAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
+    return this.brandService.cancelAnalysisJob(user.id, jobId);
   }
 
   @Get('markdown')

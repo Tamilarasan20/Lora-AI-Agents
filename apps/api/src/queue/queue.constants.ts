@@ -6,6 +6,7 @@ export const QUEUE_NAMES = {
   MEDIA_PROCESS: 'media-process',
   REFRESH_TOKEN: 'refresh-token',
   SYNC_AUDIENCE_ANALYTICS: 'sync-audience-analytics',
+  BRAND_ANALYZE: 'brand-analyze',
   // AKE queues
   AKE_CRAWL: 'ake-crawl',
   AKE_EXTRACT: 'ake-extract',
@@ -38,6 +39,8 @@ export const JOB_NAMES = {
   REFRESH_PLATFORM_TOKEN: 'refresh-platform-token',
   // sync-audience-analytics queue
   SYNC_PLATFORM_INSIGHTS: 'sync-platform-insights',
+  // brand-analyze queue
+  BRAND_ANALYZE_WEBSITE: 'brand-analyze-website',
   // AKE job names
   AKE_CRAWL_PAGE: 'ake-crawl-page',
   AKE_EXTRACT_PAGE: 'ake-extract-page',
