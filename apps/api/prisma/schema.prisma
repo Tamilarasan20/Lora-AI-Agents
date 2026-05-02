@@ -45,6 +45,7 @@ model User {
   notificationPreference   NotificationPreference?
   auditLogs                AuditLog[]
   audienceInsights         PlatformAudienceInsights[]
+  workspaces               Workspace[]
 
   @@index([email])
   @@index([status])
@@ -621,6 +622,243 @@ enum MediaStatus {
   READY
   ERROR
   DELETED
+}
+
+// ============================================
+// AI KNOWLEDGE ENGINE (AKE) — MULTI-TENANT
+// ============================================
+
+model Workspace {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @db.VarChar(100)
+  description String?
+  logoUrl     String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@map("workspaces")
+}
+
+model Project {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String        @db.Uuid
+  userId        String        @db.Uuid
+  name          String        @db.VarChar(255)
+  description   String?
+  websiteUrl    String        @db.VarChar(2048)
+  status        ProjectStatus @default(ACTIVE)
+  crawlDepth    Int           @default(3)
+  lastCrawledAt DateTime?
+  metadata      Json          @default("{}")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  crawls        Crawl[]
+  knowledgeBase KnowledgeBase?
+  seoData       SeoData?
+  strategies    Strategy[]
+  akeAssets     AkeAsset[]
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+model Crawl {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId      String      @db.Uuid
+  userId         String      @db.Uuid
+  status         CrawlStatus @default(PENDING)
+  depth          Int         @default(3)
+  pagesFound     Int         @default(0)
+  pagesProcessed Int         @default(0)
+  pagesFailed    Int         @default(0)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  errorMessage   String?
+  metadata       Json        @default("{}")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crawledPages CrawledPage[]
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+  @@map("crawls")
+}
+
+enum CrawlStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model CrawledPage {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  crawlId     String          @db.Uuid
+  projectId   String          @db.Uuid
+  userId      String          @db.Uuid
+  url         String          @db.VarChar(2048)
+  title       String?         @db.VarChar(512)
+  htmlR2Key   String?         @db.VarChar(500)
+  textContent String?
+  imageUrls   String[]        @default([])
+  headings    Json            @default("[]")
+  metaTags    Json            @default("{}")
+  links       String[]        @default([])
+  wordCount   Int             @default(0)
+  status      PageCrawlStatus @default(PENDING)
+  depth       Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  crawl Crawl @relation(fields: [crawlId], references: [id], onDelete: Cascade)
+
+  @@unique([crawlId, url])
+  @@index([crawlId])
+  @@index([projectId])
+  @@index([status])
+  @@map("crawled_pages")
+}
+
+enum PageCrawlStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+  SKIPPED
+}
+
+model KnowledgeBase {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId         String   @unique @db.Uuid
+  userId            String   @db.Uuid
+  businessProfile   Json     @default("{}")
+  marketingStrategy Json     @default("{}")
+  marketResearch    Json     @default("{}")
+  competitorInsights Json    @default("[]")
+  brandVoice        Json     @default("{}")
+  valueProposition  String?
+  targetAudience    String?
+  industry          String?  @db.VarChar(100)
+  confidenceScore   Float    @default(0)
+  generatedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("knowledge_bases")
+}
+
+model SeoData {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId         String   @unique @db.Uuid
+  userId            String   @db.Uuid
+  keywords          Json     @default("[]")
+  clusters          Json     @default("[]")
+  longTailKeywords  Json     @default("[]")
+  contentGaps       Json     @default("[]")
+  intentMap         Json     @default("{}")
+  topPages          Json     @default("[]")
+  competitorKeywords Json    @default("[]")
+  generatedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("seo_data")
+}
+
+model Strategy {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String       @db.Uuid
+  userId      String       @db.Uuid
+  type        StrategyType
+  title       String       @db.VarChar(255)
+  content     Json
+  metadata    Json         @default("{}")
+  generatedAt DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([type])
+  @@map("strategies")
+}
+
+enum StrategyType {
+  SOCIAL_MEDIA
+  SEO
+  PAID_ADS
+  EMAIL
+  CONTENT
+  VIDEO
+  COMPETITOR_RESPONSE
+}
+
+model AkeAsset {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId      String         @db.Uuid
+  userId         String         @db.Uuid
+  r2Key          String         @unique @db.VarChar(500)
+  r2Url          String
+  assetType      AkeAssetType
+  mimeType       String         @db.VarChar(100)
+  fileSize       BigInt         @default(0)
+  sourceUrl      String?        @db.VarChar(2048)
+  visualAnalysis Json           @default("{}")
+  tags           String[]       @default([])
+  altText        String?
+  status         AkeAssetStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([assetType])
+  @@index([status])
+  @@map("ake_assets")
+}
+
+enum AkeAssetType {
+  IMAGE
+  SCREENSHOT
+  VIDEO
+  GENERATED_CREATIVE
+  RAW_HTML
+}
+
+enum AkeAssetStatus {
+  PENDING
+  ANALYZING
+  READY
+  FAILED
 }
 
 // ============================================

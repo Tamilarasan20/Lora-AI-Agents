@@ -6,6 +6,12 @@ export const QUEUE_NAMES = {
   MEDIA_PROCESS: 'media-process',
   REFRESH_TOKEN: 'refresh-token',
   SYNC_AUDIENCE_ANALYTICS: 'sync-audience-analytics',
+  // AKE queues
+  AKE_CRAWL: 'ake-crawl',
+  AKE_EXTRACT: 'ake-extract',
+  AKE_ENRICH: 'ake-enrich',
+  AKE_VISUAL: 'ake-visual',
+  AKE_CREATIVE: 'ake-creative',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -32,6 +38,12 @@ export const JOB_NAMES = {
   REFRESH_PLATFORM_TOKEN: 'refresh-platform-token',
   // sync-audience-analytics queue
   SYNC_PLATFORM_INSIGHTS: 'sync-platform-insights',
+  // AKE job names
+  AKE_CRAWL_PAGE: 'ake-crawl-page',
+  AKE_EXTRACT_PAGE: 'ake-extract-page',
+  AKE_ENRICH_PROJECT: 'ake-enrich-project',
+  AKE_ANALYZE_IMAGE: 'ake-analyze-image',
+  AKE_GENERATE_CREATIVE: 'ake-generate-creative',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {

@@ -51,6 +51,13 @@ import { EmailModule } from './email/email.module';
 // Phase 11 — Billing
 import { BillingModule } from './billing/billing.module';
 
+// Phase 12 — AI Knowledge Engine (AKE)
+import { WorkspaceModule } from './workspace/workspace.module';
+import { ProjectsModule } from './projects/projects.module';
+import { CrawlerModule } from './crawler/crawler.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { CreativeModule } from './creative/creative.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -120,6 +127,13 @@ import storageConfig from './config/storage.config';
 
     // Phase 11 — Billing
     BillingModule,
+
+    // Phase 12 — AI Knowledge Engine (AKE)
+    WorkspaceModule,
+    ProjectsModule,
+    CrawlerModule,
+    KnowledgeModule,
+    CreativeModule,
 
   ],
   providers: [

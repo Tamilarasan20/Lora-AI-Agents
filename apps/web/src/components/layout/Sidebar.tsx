@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Calendar, Inbox, BarChart2,
-  Image, Link2, Palette, Bell, Settings, LogOut, Zap, MessageSquare, Menu, X,
+  Image, Link2, Palette, Bell, Settings, LogOut, Zap, MessageSquare, Menu, X, Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -22,6 +22,7 @@ const NAV = [
   { href: '/connections',   icon: Link2,            label: 'Connections' },
   { href: '/brand',         icon: Palette,          label: 'Brand' },
   { href: '/notifications', icon: Bell,             label: 'Notifications' },
+  { href: '/workspaces',    icon: Brain,            label: 'AI Knowledge' },
 ];
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
