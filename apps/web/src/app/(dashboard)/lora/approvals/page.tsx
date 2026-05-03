@@ -85,7 +85,7 @@ export default function ApprovalsPage() {
             </div>
 
             {/* Scores */}
-            {selected.output?.qualityScore && (
+            {(selected.output?.qualityScore !== undefined) && (
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <ScoreChip label="Quality" score={selected.output.qualityScore} />
                 <ScoreChip label="Brand fit" score={selected.output.brandFitScore ?? 0} />
@@ -94,7 +94,7 @@ export default function ApprovalsPage() {
             )}
 
             {/* Content Preview */}
-            {selected.output?.content && (
+            {!!selected.output?.content && (
               <div className="bg-gray-50 rounded-xl p-4 mb-4 overflow-auto max-h-60">
                 <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono">
                   {JSON.stringify(selected.output.content, null, 2)}
@@ -129,6 +129,14 @@ export default function ApprovalsPage() {
               >
                 {reject.isPending ? 'Rejecting…' : '✕ Reject'}
               </button>
+              {selected.output?.agentName === 'Clara' && (
+                <a
+                  href={`/lora/content/${selected.outputId}`}
+                  className="flex-1 text-center rounded-xl border border-violet-300 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-50"
+                >
+                  ✏️ Edit copy
+                </a>
+              )}
               <button
                 onClick={() => handleApprove(selected.id)}
                 disabled={approve.isPending}

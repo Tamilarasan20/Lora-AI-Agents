@@ -206,3 +206,105 @@ export function useLoraCalendar(from?: string, to?: string) {
     staleTime: 60_000,
   });
 }
+
+export function useScheduleCalendarItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, scheduledAt }: { itemId: string; scheduledAt?: string }) =>
+      api.post(`/lora/calendar/items/${itemId}/schedule`, { scheduledAt }).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lora', 'calendar'] });
+    },
+  });
+}
+
+export function useStrategyLifecycle(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: 'activate' | 'pause' | 'complete' | 'archive') =>
+      api.post(`/lora/strategy/${id}/${action}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['lora', 'strategy', id] });
+      qc.invalidateQueries({ queryKey: ['lora', 'strategies'] });
+      qc.invalidateQueries({ queryKey: ['lora', 'dashboard'] });
+    },
+  });
+}
+
+export interface LoraConversation {
+  id: string;
+  title?: string;
+  status: string;
+  strategyId?: string;
+  messages: LoraMessage[];
+  createdAt: string;
+}
+
+export interface LoraMessage {
+  id: string;
+  role: string;
+  agentName?: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export function useLoraConversation(id: string | null) {
+  return useQuery({
+    queryKey: ['lora', 'conversation', id],
+    queryFn: () => api.get(`/lora/conversations/${id}`).then((r) => r.data as LoraConversation),
+    enabled: !!id,
+    staleTime: 10_000,
+  });
+}
+
+export interface CreativeAsset {
+  id: string;
+  assetType: string;
+  platform: string;
+  title?: string;
+  assetUrl: string;
+  promptUsed?: string;
+  provider?: string;
+  model?: string;
+  dimensions?: string;
+  status: string;
+  approvalStatus: string;
+  slideNumber?: number;
+  brandFitScore?: number;
+  qualityScore?: number;
+  createdAt: string;
+}
+
+export function useLoraAssets(platform?: string, status?: string) {
+  return useQuery({
+    queryKey: ['lora', 'assets', platform, status],
+    queryFn: () =>
+      api
+        .get('/lora/assets', { params: { ...(platform ? { platform } : {}), ...(status ? { status } : {}) } })
+        .then((r) => r.data as CreativeAsset[]),
+    staleTime: 30_000,
+  });
+}
+
+export interface CreditUsage {
+  total: number;
+  byAgent: Record<string, number>;
+  byStrategy: Record<string, number>;
+  transactions: Array<{
+    id: string;
+    agentName: string;
+    action: string;
+    credits: number;
+    createdAt: string;
+    metadata: Record<string, unknown>;
+  }>;
+}
+
+export function useCreditUsage() {
+  return useQuery({
+    queryKey: ['lora', 'credits'],
+    queryFn: () => api.get('/lora/credits/usage').then((r) => r.data as CreditUsage),
+    staleTime: 60_000,
+  });
+}

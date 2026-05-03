@@ -35,25 +35,25 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
-  platformConnections      PlatformConnection[]
-  content                  Content[]
-  scheduledPosts           ScheduledPost[]
-  publishedPosts           PublishedPost[]
-  engagementItems          EngagementItem[]
-  brandKnowledge           BrandKnowledge?
-  notifications            Notification[]
-  notificationPreference   NotificationPreference?
-  auditLogs                AuditLog[]
-  audienceInsights         PlatformAudienceInsights[]
-  workspaces               Workspace[]
-  brandMemoryEntries       BrandMemoryEntry[]
-  brandDna                 BrandDna?
-  customerVoiceInsights    CustomerVoiceInsight[]
-  competitorSnapshots      CompetitorSnapshot[]
-  brandDriftReports        BrandDriftReport[]
-  brandValidationLogs      BrandValidationLog[]
-  brandAnalysisJobs        BrandAnalysisJob[]
-  marketingStrategies      MarketingStrategy[]
+  platformConnections    PlatformConnection[]
+  content                Content[]
+  scheduledPosts         ScheduledPost[]
+  publishedPosts         PublishedPost[]
+  engagementItems        EngagementItem[]
+  brandKnowledge         BrandKnowledge?
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
+  auditLogs              AuditLog[]
+  audienceInsights       PlatformAudienceInsights[]
+  workspaces             Workspace[]
+  brandMemoryEntries     BrandMemoryEntry[]
+  brandDna               BrandDna?
+  customerVoiceInsights  CustomerVoiceInsight[]
+  competitorSnapshots    CompetitorSnapshot[]
+  brandDriftReports      BrandDriftReport[]
+  brandValidationLogs    BrandValidationLog[]
+  brandAnalysisJobs      BrandAnalysisJob[]
+  marketingStrategies    MarketingStrategy[]
 
   @@index([email])
   @@index([status])
@@ -85,8 +85,8 @@ model PlatformConnection {
   platformUsername    String?          @db.VarChar(255)
   platformDisplayName String?          @db.VarChar(255)
   platformAvatarUrl   String?
-  accessToken         String           // Encrypted at app layer
-  refreshToken        String?          // Encrypted at app layer
+  accessToken         String // Encrypted at app layer
+  refreshToken        String? // Encrypted at app layer
   tokenExpiresAt      DateTime?
   scopes              String[]         @default([])
   connectionStatus    ConnectionStatus @default(ACTIVE)
@@ -96,7 +96,7 @@ model PlatformConnection {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   scheduledPosts   ScheduledPost[]
   audienceInsights PlatformAudienceInsights?
 
@@ -181,10 +181,10 @@ model Content {
   cta             String?
   hashtags        String[]      @default([])
   status          ContentStatus @default(DRAFT)
-  agentProcessed   Boolean       @default(false)
-  agentInsights    Json          @default("{}")
-  platformContent  Json          @default("{}")
-  metadata         Json          @default("{}")
+  agentProcessed  Boolean       @default(false)
+  agentInsights   Json          @default("{}")
+  platformContent Json          @default("{}")
+  metadata        Json          @default("{}")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -280,32 +280,32 @@ enum PostStatus {
 // ============================================
 
 model PublishedPost {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   scheduledPostId      String          @unique @db.Uuid
   contentId            String?         @db.Uuid
   userId               String          @db.Uuid
   platformConnectionId String?         @db.Uuid
   platform             String          @db.VarChar(50)
-  platformPostId     String          @db.VarChar(255)
-  platformUrl        String?
-  caption            String?
-  mediaUrls          String[]        @default([])
-  hashtags           String[]        @default([])
-  publishedAt        DateTime
-  impressions        Int             @default(0)
-  reach              Int             @default(0)
-  engagementTotal    Int             @default(0)
-  likes              Int             @default(0)
-  comments           Int             @default(0)
-  shares             Int             @default(0)
-  saves              Int             @default(0)
-  clicks             Int             @default(0)
-  videoViews         Int             @default(0)
-  engagementRate     Decimal         @default(0.00) @db.Decimal(6, 3)
-  performanceTier    PerformanceTier @default(MEDIUM)
-  lastAnalyticsFetch DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  platformPostId       String          @db.VarChar(255)
+  platformUrl          String?
+  caption              String?
+  mediaUrls            String[]        @default([])
+  hashtags             String[]        @default([])
+  publishedAt          DateTime
+  impressions          Int             @default(0)
+  reach                Int             @default(0)
+  engagementTotal      Int             @default(0)
+  likes                Int             @default(0)
+  comments             Int             @default(0)
+  shares               Int             @default(0)
+  saves                Int             @default(0)
+  clicks               Int             @default(0)
+  videoViews           Int             @default(0)
+  engagementRate       Decimal         @default(0.00) @db.Decimal(6, 3)
+  performanceTier      PerformanceTier @default(MEDIUM)
+  lastAnalyticsFetch   DateTime?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
 
   scheduledPost   ScheduledPost    @relation(fields: [scheduledPostId], references: [id])
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -421,10 +421,10 @@ model SchedulingInsight {
 // ============================================
 
 model PlatformAudienceInsights {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  connectionId String   @db.Uuid
-  userId       String   @db.Uuid
-  platform     String   @db.VarChar(50)
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connectionId String @db.Uuid
+  userId       String @db.Uuid
+  platform     String @db.VarChar(50)
 
   // Followers online by hour-of-day: { "0": 320, "1": 280, ..., "23": 1240 }
   // Keys are UTC hours 0-23, values are avg online follower count
@@ -441,23 +441,23 @@ model PlatformAudienceInsights {
   platformRecommendedTimes Json @default("[]")
 
   // Current follower / subscriber count
-  followerCount    Int @default(0)
+  followerCount Int @default(0)
 
   // Audience demographics summary
-  topAgeRange      String? @db.VarChar(20)
-  topGender        String? @db.VarChar(20)
-  topCountry       String? @db.VarChar(10)
-  topCity          String? @db.VarChar(100)
+  topAgeRange String? @db.VarChar(20)
+  topGender   String? @db.VarChar(20)
+  topCountry  String? @db.VarChar(10)
+  topCity     String? @db.VarChar(100)
 
   // Reach and impression stats for last 30 days
-  avgDailyImpressions Int @default(0)
-  avgDailyReach       Int @default(0)
+  avgDailyImpressions Int     @default(0)
+  avgDailyReach       Int     @default(0)
   avgEngagementRate   Decimal @default(0.00) @db.Decimal(6, 3)
 
   // When these insights were last fetched from the platform
-  fetchedAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  fetchedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   connection PlatformConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -715,7 +715,7 @@ model Crawl {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   crawledPages CrawledPage[]
 
   @@index([projectId])
@@ -769,20 +769,20 @@ enum PageCrawlStatus {
 }
 
 model KnowledgeBase {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId         String   @unique @db.Uuid
-  userId            String   @db.Uuid
-  businessProfile   Json     @default("{}")
-  marketingStrategy Json     @default("{}")
-  marketResearch    Json     @default("{}")
-  competitorInsights Json    @default("[]")
-  brandVoice        Json     @default("{}")
-  valueProposition  String?
-  targetAudience    String?
-  industry          String?  @db.VarChar(100)
-  confidenceScore   Float    @default(0)
-  generatedAt       DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId          String   @unique @db.Uuid
+  userId             String   @db.Uuid
+  businessProfile    Json     @default("{}")
+  marketingStrategy  Json     @default("{}")
+  marketResearch     Json     @default("{}")
+  competitorInsights Json     @default("[]")
+  brandVoice         Json     @default("{}")
+  valueProposition   String?
+  targetAudience     String?
+  industry           String?  @db.VarChar(100)
+  confidenceScore    Float    @default(0)
+  generatedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -791,18 +791,18 @@ model KnowledgeBase {
 }
 
 model SeoData {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId         String   @unique @db.Uuid
-  userId            String   @db.Uuid
-  keywords          Json     @default("[]")
-  clusters          Json     @default("[]")
-  longTailKeywords  Json     @default("[]")
-  contentGaps       Json     @default("[]")
-  intentMap         Json     @default("{}")
-  topPages          Json     @default("[]")
-  competitorKeywords Json    @default("[]")
-  generatedAt       DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId          String   @unique @db.Uuid
+  userId             String   @db.Uuid
+  keywords           Json     @default("[]")
+  clusters           Json     @default("[]")
+  longTailKeywords   Json     @default("[]")
+  contentGaps        Json     @default("[]")
+  intentMap          Json     @default("{}")
+  topPages           Json     @default("[]")
+  competitorKeywords Json     @default("[]")
+  generatedAt        DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -1105,9 +1105,9 @@ model MarketingStrategy {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  campaigns  MarketingCampaign[]
-  tasks      MarketingTask[]
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns MarketingCampaign[]
+  tasks     MarketingTask[]
 
   @@index([userId])
   @@index([status])
@@ -1197,22 +1197,22 @@ model AgentAssignment {
 }
 
 model AgentOutput {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId             String    @db.Uuid
-  businessId         String    @db.VarChar(255)
-  taskId             String    @db.Uuid
-  agentName          String    @db.VarChar(50)
-  outputType         String    @db.VarChar(100)
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String   @db.Uuid
+  businessId         String   @db.VarChar(255)
+  taskId             String   @db.Uuid
+  agentName          String   @db.VarChar(50)
+  outputType         String   @db.VarChar(100)
   content            Json
-  metadata           Json      @default("{}")
-  status             String    @default("draft") @db.VarChar(50)
+  metadata           Json     @default("{}")
+  status             String   @default("draft") @db.VarChar(50)
   qualityScore       Int?
   brandFitScore      Int?
   goalAlignmentScore Int?
-  reviewedByLora     Boolean   @default(false)
+  reviewedByLora     Boolean  @default(false)
   reviewNotes        String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   task     MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   approval Approval?
@@ -1268,45 +1268,123 @@ model Approval {
 }
 
 model AgentCreditUsage {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String   @db.Uuid
-  agentName  String   @db.VarChar(50)
-  action     String   @db.VarChar(100)
-  credits    Int
-  metadata   Json     @default("{}")
-  createdAt  DateTime @default(now())
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  agentName String   @db.VarChar(50)
+  action    String   @db.VarChar(100)
+  credits   Int
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([agentName])
   @@map("agent_credit_usage")
 }
 
-
 model CreativeAsset {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String   @db.Uuid
-  businessId     String   @db.VarChar(255)
-  taskId         String?  @db.Uuid
-  campaignId     String?  @db.Uuid
-  agentOutputId  String?  @db.Uuid
-  assetType      String   @db.VarChar(50)
-  platform       String   @db.VarChar(100)
-  dimensions     String   @default("1080x1080") @db.VarChar(50)
-  assetUrl       String   @db.VarChar(2000)
-  promptUsed     String?
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @db.Uuid
+  businessId      String   @db.VarChar(255)
+  taskId          String?  @db.Uuid
+  campaignId      String?  @db.Uuid
+  agentOutputId   String?  @db.Uuid
+  calendarItemId  String?  @db.Uuid
+  createdByAgent  String   @default("Steve") @db.VarChar(50)
+  assetType       String   @db.VarChar(50)
+  platform        String   @db.VarChar(100)
+  title           String?  @db.VarChar(500)
+  dimensions      String   @default("1080x1080") @db.VarChar(50)
+  assetUrl        String   @db.VarChar(2000)
+  storageKey      String?  @db.VarChar(1000)
+  storageProvider String   @default("cloudflare_r2") @db.VarChar(50)
+  mimeType        String?  @db.VarChar(100)
+  provider        String?  @db.VarChar(50)
+  model           String?  @db.VarChar(100)
+  promptUsed      String?
   brandStyleNotes String?
-  slideNumber    Int?
-  status         String   @default("draft") @db.VarChar(50)
-  approvalStatus String   @default("pending") @db.VarChar(50)
-  metadata       Json     @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  slideNumber     Int?
+  brandFitScore   Int?
+  qualityScore    Int?
+  status          String   @default("draft") @db.VarChar(50)
+  approvalStatus  String   @default("pending") @db.VarChar(50)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  task       MarketingTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  campaign   MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  task     MarketingTask?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  campaign MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([taskId])
   @@index([campaignId])
+  @@index([status])
   @@map("creative_assets")
+}
+
+model LoraConversation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  businessId String   @db.VarChar(255)
+  title      String?  @db.VarChar(500)
+  status     String   @default("active") @db.VarChar(50)
+  strategyId String?  @db.Uuid
+  jobId      String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages LoraMessage[]
+
+  @@index([userId])
+  @@index([businessId])
+  @@map("lora_conversations")
+}
+
+model LoraMessage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String   @db.Uuid
+  userId         String   @db.Uuid
+  businessId     String   @db.VarChar(255)
+  role           String   @db.VarChar(50)
+  agentName      String?  @db.VarChar(50)
+  content        String
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  conversation LoraConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([userId])
+  @@map("lora_messages")
+}
+
+model ContentRevision {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  businessId String   @db.VarChar(255)
+  outputId   String   @db.Uuid
+  version    Int      @default(1)
+  content    Json
+  editedBy   String   @db.VarChar(100)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([outputId])
+  @@map("content_revisions")
+}
+
+model CompetitorWatchlistItem {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  businessId String   @db.VarChar(255)
+  name       String   @db.VarChar(255)
+  websiteUrl String?  @db.VarChar(2000)
+  socialUrls Json     @default("{}")
+  notes      String?
+  status     String   @default("active") @db.VarChar(50)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([businessId])
+  @@map("competitor_watchlist")
 }

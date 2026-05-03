@@ -2,6 +2,8 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useStrategy, useRunAgentTask } from '@/lib/hooks/useLora';
 
 const AGENT_AVATARS: Record<string, string> = {
@@ -24,8 +26,15 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function StrategyDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const qc = useQueryClient();
   const { data: strategy, isLoading, refetch } = useStrategy(id);
   const runTask = useRunAgentTask();
+
+  const changeStatus = useMutation({
+    mutationFn: (action: 'activate' | 'pause' | 'complete' | 'archive') =>
+      api.post(`/lora/strategy/${id}/${action}`).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['lora', 'strategy', id] }); },
+  });
 
   if (isLoading) {
     return (
@@ -77,8 +86,53 @@ export default function StrategyDetailPage() {
             <h1 className="text-xl font-bold text-gray-900">{strategy.title}</h1>
             <p className="text-sm text-gray-600 mt-1">{strategy.goal}</p>
           </div>
-          <div className="text-xs text-gray-400">
-            {strategy.creditsUsed} credits used
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400">{strategy.creditsUsed} credits</span>
+            {strategy.status === 'draft' && (
+              <button
+                onClick={() => changeStatus.mutate('activate')}
+                disabled={changeStatus.isPending}
+                className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Activate
+              </button>
+            )}
+            {strategy.status === 'active' && (
+              <>
+                <button
+                  onClick={() => changeStatus.mutate('pause')}
+                  disabled={changeStatus.isPending}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                >
+                  Pause
+                </button>
+                <button
+                  onClick={() => changeStatus.mutate('complete')}
+                  disabled={changeStatus.isPending}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Complete
+                </button>
+              </>
+            )}
+            {strategy.status === 'paused' && (
+              <button
+                onClick={() => changeStatus.mutate('activate')}
+                disabled={changeStatus.isPending}
+                className="text-xs px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                Resume
+              </button>
+            )}
+            {(strategy.status === 'completed' || strategy.status === 'paused') && (
+              <button
+                onClick={() => changeStatus.mutate('archive')}
+                disabled={changeStatus.isPending}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Archive
+              </button>
+            )}
           </div>
         </div>
 
