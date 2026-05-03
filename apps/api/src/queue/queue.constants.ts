@@ -13,6 +13,12 @@ export const QUEUE_NAMES = {
   AKE_ENRICH: 'ake-enrich',
   AKE_VISUAL: 'ake-visual',
   AKE_CREATIVE: 'ake-creative',
+  // Phase 1 — Lora AI Marketing Team
+  LORA_STRATEGY: 'lora-strategy',
+  LORA_AGENT_TASK: 'lora-agent-task',
+  LORA_REVIEW: 'lora-review',
+  LORA_CALENDAR_SYNC: 'lora-calendar-sync',
+  LORA_SOCIAL_PUBLISH: 'lora-social-publish',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -47,6 +53,12 @@ export const JOB_NAMES = {
   AKE_ENRICH_PROJECT: 'ake-enrich-project',
   AKE_ANALYZE_IMAGE: 'ake-analyze-image',
   AKE_GENERATE_CREATIVE: 'ake-generate-creative',
+  // Lora job names
+  LORA_CREATE_STRATEGY: 'lora-create-strategy',
+  LORA_RUN_AGENT_TASK: 'lora-run-agent-task',
+  LORA_REVIEW_OUTPUT: 'lora-review-output',
+  LORA_SYNC_CALENDAR: 'lora-sync-calendar',
+  LORA_PUBLISH_APPROVED: 'lora-publish-approved',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {

@@ -58,6 +58,9 @@ import { CrawlerModule } from './crawler/crawler.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { CreativeModule } from './creative/creative.module';
 
+// Phase 1 — Lora AI Marketing Team
+import { LoraModule } from './modules/lora/lora.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -134,6 +137,9 @@ import storageConfig from './config/storage.config';
     CrawlerModule,
     KnowledgeModule,
     CreativeModule,
+
+    // Phase 1 — Lora AI Marketing Team
+    LoraModule,
 
   ],
   providers: [

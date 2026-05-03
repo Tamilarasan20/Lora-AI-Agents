@@ -53,6 +53,7 @@ model User {
   brandDriftReports        BrandDriftReport[]
   brandValidationLogs      BrandValidationLog[]
   brandAnalysisJobs        BrandAnalysisJob[]
+  marketingStrategies      MarketingStrategy[]
 
   @@index([email])
   @@index([status])
@@ -1070,4 +1071,242 @@ model FeatureFlag {
   updatedAt         DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+// ============================================
+// PHASE 1 — LORA AI MARKETING TEAM
+// ============================================
+
+model MarketingStrategy {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @db.Uuid
+  businessId          String    @db.VarChar(255)
+  title               String    @db.VarChar(500)
+  goal                String
+  goalType            String    @db.VarChar(100)
+  summary             String?
+  targetAudience      String?
+  brandVoiceDirection String?
+  positioning         String?
+  channels            Json      @default("[]")
+  contentPillars      Json      @default("[]")
+  campaignIdeas       Json      @default("[]")
+  executionPlan       Json      @default("[]")
+  teamAssignments     Json      @default("[]")
+  recommendedChannels Json      @default("[]")
+  risks               Json      @default("[]")
+  nextBestActions     Json      @default("[]")
+  status              String    @default("draft") @db.VarChar(50)
+  priority            String    @default("medium") @db.VarChar(50)
+  startDate           DateTime?
+  endDate             DateTime?
+  createdByAgent      String    @default("Lora") @db.VarChar(50)
+  creditsUsed         Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaigns  MarketingCampaign[]
+  tasks      MarketingTask[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("marketing_strategies")
+}
+
+model MarketingCampaign {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @db.Uuid
+  businessId  String    @db.VarChar(255)
+  strategyId  String?   @db.Uuid
+  name        String    @db.VarChar(500)
+  objective   String
+  description String?
+  channels    Json      @default("[]")
+  status      String    @default("draft") @db.VarChar(50)
+  budget      Float?
+  startDate   DateTime?
+  endDate     DateTime?
+  kpis        Json      @default("[]")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  strategy       MarketingStrategy?      @relation(fields: [strategyId], references: [id])
+  tasks          MarketingTask[]
+  calendar       MarketingCalendarItem[]
+  creativeAssets CreativeAsset[]
+
+  @@index([userId])
+  @@index([strategyId])
+  @@map("marketing_campaigns")
+}
+
+model MarketingTask {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @db.Uuid
+  businessId     String    @db.VarChar(255)
+  strategyId     String?   @db.Uuid
+  campaignId     String?   @db.Uuid
+  title          String    @db.VarChar(500)
+  description    String
+  assignedAgent  String    @db.VarChar(50)
+  priority       String    @default("medium") @db.VarChar(50)
+  status         String    @default("pending") @db.VarChar(50)
+  dueDate        DateTime?
+  dependencies   Json      @default("[]")
+  requiredInputs Json      @default("{}")
+  expectedOutput String?
+  outputId       String?   @db.Uuid
+  reviewStatus   String    @default("not_reviewed") @db.VarChar(50)
+  reviewedBy     String?   @db.VarChar(50)
+  reviewNotes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  strategy       MarketingStrategy? @relation(fields: [strategyId], references: [id])
+  campaign       MarketingCampaign? @relation(fields: [campaignId], references: [id])
+  assignments    AgentAssignment[]
+  outputs        AgentOutput[]
+  creativeAssets CreativeAsset[]
+
+  @@index([userId])
+  @@index([assignedAgent])
+  @@index([status])
+  @@map("marketing_tasks")
+}
+
+model AgentAssignment {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String    @db.Uuid
+  businessId       String    @db.VarChar(255)
+  taskId           String    @db.Uuid
+  agentName        String    @db.VarChar(50)
+  agentRole        String    @db.VarChar(100)
+  assignmentReason String?
+  status           String    @default("assigned") @db.VarChar(50)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  task MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([agentName])
+  @@map("agent_assignments")
+}
+
+model AgentOutput {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String    @db.Uuid
+  businessId         String    @db.VarChar(255)
+  taskId             String    @db.Uuid
+  agentName          String    @db.VarChar(50)
+  outputType         String    @db.VarChar(100)
+  content            Json
+  metadata           Json      @default("{}")
+  status             String    @default("draft") @db.VarChar(50)
+  qualityScore       Int?
+  brandFitScore      Int?
+  goalAlignmentScore Int?
+  reviewedByLora     Boolean   @default(false)
+  reviewNotes        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  task     MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approval Approval?
+
+  @@index([userId])
+  @@index([agentName])
+  @@map("agent_outputs")
+}
+
+model MarketingCalendarItem {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @db.Uuid
+  businessId     String    @db.VarChar(255)
+  campaignId     String?   @db.Uuid
+  taskId         String?   @db.Uuid
+  title          String    @db.VarChar(500)
+  description    String?
+  platform       String    @db.VarChar(100)
+  contentType    String    @db.VarChar(100)
+  scheduledAt    DateTime?
+  publishStatus  String    @default("draft") @db.VarChar(50)
+  assetIds       Json      @default("[]")
+  assignedAgent  String?   @db.VarChar(50)
+  approvalStatus String    @default("pending") @db.VarChar(50)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  campaign MarketingCampaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([userId])
+  @@index([scheduledAt])
+  @@map("marketing_calendar_items")
+}
+
+model Approval {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  businessId  String   @db.VarChar(255)
+  outputId    String   @unique @db.Uuid
+  type        String   @db.VarChar(100)
+  status      String   @default("pending") @db.VarChar(50)
+  requestedBy String   @default("Lora") @db.VarChar(50)
+  reviewedBy  String?  @db.VarChar(100)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  output AgentOutput @relation(fields: [outputId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("approvals")
+}
+
+model AgentCreditUsage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @db.Uuid
+  agentName  String   @db.VarChar(50)
+  action     String   @db.VarChar(100)
+  credits    Int
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([agentName])
+  @@map("agent_credit_usage")
+}
+
+
+model CreativeAsset {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @db.Uuid
+  businessId     String   @db.VarChar(255)
+  taskId         String?  @db.Uuid
+  campaignId     String?  @db.Uuid
+  agentOutputId  String?  @db.Uuid
+  assetType      String   @db.VarChar(50)
+  platform       String   @db.VarChar(100)
+  dimensions     String   @default("1080x1080") @db.VarChar(50)
+  assetUrl       String   @db.VarChar(2000)
+  promptUsed     String?
+  brandStyleNotes String?
+  slideNumber    Int?
+  status         String   @default("draft") @db.VarChar(50)
+  approvalStatus String   @default("pending") @db.VarChar(50)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  task       MarketingTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  campaign   MarketingCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([campaignId])
+  @@map("creative_assets")
 }
