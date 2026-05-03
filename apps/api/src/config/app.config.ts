@@ -15,6 +15,7 @@ export default registerAs('app', () => ({
     jwtSecret: process.env.SUPABASE_JWT_SECRET || '',
     url: process.env.SUPABASE_URL || '',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    jwksUrl: process.env.SUPABASE_JWKS_URL || '',
   },
   resend: {
     apiKey: process.env.RESEND_API_KEY || '',

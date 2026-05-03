@@ -16,6 +16,7 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  setLoading: (isLoading: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -25,8 +26,10 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
-  isLoading: false,
+  isLoading: true,
   isAuthenticated: false,
+
+  setLoading: (isLoading) => set({ isLoading }),
 
   login: async (email, password) => {
     if (!isSupabaseConfigured) {
@@ -77,17 +80,24 @@ export const useAuthStore = create<AuthState>()((set) => ({
           plan: 'FREE',
         },
         isAuthenticated: true,
+        isLoading: false,
       });
       return;
     }
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      if (!token) return;
+      if (!token) {
+        set({ user: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
 
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000'}/v1/auth/me`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000),
+        },
       );
       const profile = res.ok ? await res.json() : {};
 
@@ -102,6 +112,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
           onboardingComplete: profile.onboardingComplete ?? true,
         },
         isAuthenticated: true,
+        isLoading: false,
       });
     } catch {
       set({
@@ -112,9 +123,10 @@ export const useAuthStore = create<AuthState>()((set) => ({
           plan: 'FREE',
         },
         isAuthenticated: true,
+        isLoading: false,
       });
     }
   },
 
-  reset: () => set({ user: null, isAuthenticated: false }),
+  reset: () => set({ user: null, isAuthenticated: false, isLoading: false }),
 }));

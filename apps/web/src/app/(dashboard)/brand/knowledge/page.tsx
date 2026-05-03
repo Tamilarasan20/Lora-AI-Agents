@@ -1,95 +1,122 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
 import { useStartBrandKnowledgeJob } from '@/lib/hooks/useBrand';
 
-/**
- * Pomelli-style entry screen.
- * User enters a URL, we enqueue a backend job, then redirect to the
- * Generating screen which polls for status until the draft is ready
- * for review.
- */
 export default function StartBrandKnowledgePage() {
   const router = useRouter();
   const [websiteUrl, setWebsiteUrl] = useState('');
   const start = useStartBrandKnowledgeJob();
 
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!websiteUrl.trim()) return;
     const job = await start.mutateAsync(websiteUrl.trim());
+    if (!job?.jobId) {
+      throw new Error('Brand analysis started but no job id was returned.');
+    }
     router.push(`/brand/knowledge/${job.jobId}`);
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-6">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-10">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-2xl mb-4">
-            ✨
+    <div className="flex min-h-screen flex-col px-4 py-8 md:px-10 md:py-12">
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-4xl">
+          <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="hidden rounded-[40px] bg-[radial-gradient(circle_at_30%_20%,rgba(47,128,237,0.18),transparent_38%),linear-gradient(180deg,#f4f8ff_0%,#ecf3ff_100%)] p-10 lg:flex lg:flex-col lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-[#2f80ed] shadow-sm">
+                  <Sparkles className="h-4 w-4" />
+                  Lora Knowledge Base
+                </div>
+                <h1 className="mt-8 max-w-md text-5xl font-semibold tracking-[-0.04em] text-slate-900">
+                  Turn any website into usable brand intelligence.
+                </h1>
+                <p className="mt-5 max-w-lg text-lg leading-8 text-slate-500">
+                  We analyze the website, collect visual assets, identify market signals, and turn everything into a clean knowledge base your agents can use.
+                </p>
+              </div>
+
+              <div className="grid gap-4">
+                <FeatureCard title="Business profile" body="Founder story, product lineup, retail presence, positioning, and differentiation." />
+                <FeatureCard title="Market research" body="Competitor signals, audience motivations, category trends, and opportunity space." />
+                <FeatureCard title="Brand guidelines" body="Colors, fonts, visuals, tone of voice, image library, and knowledge docs." />
+              </div>
+            </div>
+
+            <div className="mx-auto w-full max-w-2xl self-center rounded-[36px] border border-[#d7e3f8] bg-white px-7 py-8 shadow-[0_32px_80px_rgba(31,78,152,0.10)] md:px-10 md:py-10">
+              <div className="text-center">
+                <h2 className="text-[2.75rem] font-semibold tracking-[-0.05em] text-slate-900 md:text-[3rem]">
+                  Enter your website
+                </h2>
+                <p className="mt-3 text-lg text-slate-500">
+                  We&apos;ll analyse your business details and generate knowledge base
+                </p>
+              </div>
+
+              <form onSubmit={onSubmit} className="mt-10">
+                <div className="flex rounded-[30px] border border-slate-200 bg-white px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="yourwebsite.com"
+                    className="min-w-0 flex-1 border-0 bg-transparent px-4 py-4 text-2xl font-medium text-slate-700 outline-none placeholder:text-slate-300 md:text-[2rem]"
+                    disabled={start.isPending}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={start.isPending || !websiteUrl.trim()}
+                    className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-[#2f80ed] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Continue"
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </button>
+                </div>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className="rounded-full bg-[#edf4ff] px-8 py-5 text-xl font-semibold text-[#2f80ed] transition hover:bg-[#e0ebff]"
+                  >
+                    No Website Yet?
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={start.isPending || !websiteUrl.trim()}
+                    className="rounded-full bg-[#2f80ed] px-8 py-5 text-xl font-semibold text-white shadow-[0_18px_32px_rgba(47,128,237,0.24)] transition hover:bg-[#1f72e3] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {start.isPending ? 'Starting…' : 'Continue'}
+                  </button>
+                </div>
+
+                {start.isError && (
+                  <p className="mt-4 text-sm font-medium text-red-600">
+                    {(start.error as Error)?.message ?? 'Could not start analysis.'}
+                  </p>
+                )}
+              </form>
+
+              <div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-400">
+                <ArrowRight className="h-4 w-4" />
+                <span>Website analysis, competitors, assets, and brand docs in one flow</span>
+              </div>
+            </div>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Build your brand knowledge base
-          </h1>
-          <p className="mt-3 text-gray-600">
-            Drop a website URL and we&apos;ll research your brand — voice, audience,
-            competitors, visual identity, and more. You&apos;ll review everything
-            before it&apos;s saved.
-          </p>
-        </div>
-
-        <form onSubmit={onSubmit} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Your website
-          </label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={websiteUrl}
-              onChange={(e) => setWebsiteUrl(e.target.value)}
-              placeholder="https://yourbrand.com"
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
-              disabled={start.isPending}
-              autoFocus
-            />
-            <button
-              type="submit"
-              disabled={start.isPending || !websiteUrl.trim()}
-              className="rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white shadow-sm hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {start.isPending ? 'Starting…' : 'Generate'}
-            </button>
-          </div>
-
-          {start.isError && (
-            <p className="mt-3 text-sm text-red-600">
-              {(start.error as Error)?.message ?? 'Could not start analysis.'}
-            </p>
-          )}
-
-          <p className="mt-4 text-xs text-gray-500">
-            This usually takes a few minutes. You can leave this page — your
-            knowledge base will be ready when you come back.
-          </p>
-        </form>
-
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-600">
-          <Bullet icon="🌐" title="Crawl" body="Multi-page scrape of your site, blog, and key pages." />
-          <Bullet icon="🧠" title="Analyze" body="Gemini 2.5 Pro extracts brand DNA, voice, and audience." />
-          <Bullet icon="✅" title="Review" body="You edit and approve before anything is saved." />
         </div>
       </div>
     </div>
   );
 }
 
-function Bullet({ icon, title, body }: { icon: string; title: string; body: string }) {
+function FeatureCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="text-2xl mb-2">{icon}</div>
-      <div className="font-medium text-gray-900">{title}</div>
-      <div className="mt-1 text-gray-600">{body}</div>
+    <div className="rounded-[28px] border border-white/80 bg-white/70 p-5 backdrop-blur">
+      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      <p className="mt-2 text-sm leading-7 text-slate-500">{body}</p>
     </div>
   );
 }

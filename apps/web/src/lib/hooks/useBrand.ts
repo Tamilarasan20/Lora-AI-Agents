@@ -8,6 +8,12 @@ import type {
   CompetitorRecord,
 } from '@/lib/brand-types';
 
+interface ApiEnvelope<T> {
+  success: true;
+  data: T;
+  timestamp: string;
+}
+
 async function brandRequest<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/brand${input}`, {
     ...init,
@@ -149,25 +155,30 @@ export function useStartBrandKnowledgeJob() {
   return useMutation({
     mutationFn: async (websiteUrl: string) => {
       const { default: api } = await import('@/lib/api');
-      const { data } = await api.post<{ jobId: string; status: BrandAnalysisJobStatus; websiteUrl: string }>(
+      const { data } = await api.post<ApiEnvelope<{ jobId: string; status: BrandAnalysisJobStatus; websiteUrl: string }>>(
         '/brand/analyze-website',
         { websiteUrl },
       );
-      return data;
+      return data.data;
     },
   });
 }
 
 /** Polls the job until it reaches a terminal-or-review state. */
 export function useBrandKnowledgeJob(jobId: string | null | undefined) {
+  const normalizedJobId =
+    jobId && jobId !== 'undefined' && jobId !== 'null' ? jobId : null;
+
   return useQuery<BrandAnalysisJob>({
-    queryKey: ['brand', 'analyze-job', jobId],
+    queryKey: ['brand', 'analyze-job', normalizedJobId],
     queryFn: async () => {
       const { default: api } = await import('@/lib/api');
-      const { data } = await api.get<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}`);
-      return data;
+      const { data } = await api.get<ApiEnvelope<BrandAnalysisJob>>(
+        `/brand/analyze-website/jobs/${normalizedJobId}`,
+      );
+      return data.data;
     },
-    enabled: Boolean(jobId),
+    enabled: Boolean(normalizedJobId),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (!status) return 2_000;
@@ -183,11 +194,11 @@ export function useUpdateBrandKnowledgeDraft(jobId: string) {
   return useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
       const { default: api } = await import('@/lib/api');
-      const { data } = await api.patch<BrandAnalysisJob>(
+      const { data } = await api.patch<ApiEnvelope<BrandAnalysisJob>>(
         `/brand/analyze-website/jobs/${jobId}/draft`,
         patch,
       );
-      return data;
+      return data.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'analyze-job', jobId] }),
   });
@@ -198,8 +209,10 @@ export function useApproveBrandKnowledgeJob(jobId: string) {
   return useMutation({
     mutationFn: async () => {
       const { default: api } = await import('@/lib/api');
-      const { data } = await api.post<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}/approve`);
-      return data;
+      const { data } = await api.post<ApiEnvelope<BrandAnalysisJob>>(
+        `/brand/analyze-website/jobs/${jobId}/approve`,
+      );
+      return data.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['brand'] });
@@ -213,8 +226,10 @@ export function useCancelBrandKnowledgeJob(jobId: string) {
   return useMutation({
     mutationFn: async () => {
       const { default: api } = await import('@/lib/api');
-      const { data } = await api.post<BrandAnalysisJob>(`/brand/analyze-website/jobs/${jobId}/cancel`);
-      return data;
+      const { data } = await api.post<ApiEnvelope<BrandAnalysisJob>>(
+        `/brand/analyze-website/jobs/${jobId}/cancel`,
+      );
+      return data.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['brand', 'analyze-job', jobId] }),
   });
