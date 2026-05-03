@@ -44,6 +44,12 @@ export interface BrandProfileRecord {
   industry: string;
   websiteUrl: string;
   targetAudience: string;
+  founderStory?: string | null;
+  products?: string[];
+  keySellingPoints?: string[];
+  retailPresence?: string[];
+  marketingGoals?: string[];
+  seoKeywords?: string[];
   tone: string;
   voiceCharacteristics: string[];
   prohibitedWords: string[];

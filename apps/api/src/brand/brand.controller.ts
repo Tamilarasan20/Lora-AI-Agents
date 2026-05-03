@@ -9,6 +9,7 @@ import { QueueService } from '../queue/queue.service';
 import { QUEUE_NAMES, JOB_NAMES } from '../queue/queue.constants';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { AuthUser } from '../auth/strategies/jwt.strategy';
 import { BrandIntelligenceService } from './intelligence/brand-intelligence.service';
 import { AgentName } from './intelligence/agent-context.service';
@@ -81,6 +82,10 @@ export class BrandController {
     private readonly intel: BrandIntelligenceService,
     private readonly queue: QueueService,
   ) {}
+
+  private async resolveAnalysisActorId(user?: AuthUser) {
+    return this.brandService.resolveAnalysisActorId(user?.id);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get full brand knowledge profile' })
@@ -156,60 +161,74 @@ export class BrandController {
   // 5. POST /brand/analyze-website/jobs/:id/approve → commit draft to BrandKnowledge
   // 6. POST /brand/analyze-website/jobs/:id/cancel  → abort
 
+  @Public()
   @Post('analyze-website')
   @ApiOperation({ summary: 'Start an async brand-knowledge analysis job (Pomelli-style)' })
   async startAnalyzeWebsite(
-    @CurrentUser() user: AuthUser,
     @Body() dto: AnalyzeWebsiteDto,
+    @CurrentUser() user?: AuthUser,
   ) {
-    const job = await this.brandService.createAnalysisJob(user.id, dto.websiteUrl);
+    const userId = await this.resolveAnalysisActorId(user);
+    const job = await this.brandService.createAnalysisJob(userId, dto.websiteUrl);
     await this.queue.addJob(
       QUEUE_NAMES.BRAND_ANALYZE,
       JOB_NAMES.BRAND_ANALYZE_WEBSITE,
-      { jobId: job.id, userId: user.id, websiteUrl: job.websiteUrl },
+      { jobId: job.id, userId, websiteUrl: job.websiteUrl },
     );
     return { jobId: job.id, status: job.status, websiteUrl: job.websiteUrl };
   }
 
+  @Public()
   @Get('analyze-website/jobs')
   @ApiOperation({ summary: 'List recent brand analysis jobs' })
-  listAnalyzeJobs(@CurrentUser() user: AuthUser, @Query('limit') limit?: string) {
-    return this.brandService.listAnalysisJobs(user.id, limit ? parseInt(limit, 10) : 10);
+  async listAnalyzeJobs(@CurrentUser() user: AuthUser | undefined, @Query('limit') limit?: string) {
+    const userId = await this.resolveAnalysisActorId(user);
+    return this.brandService.listAnalysisJobs(userId, limit ? parseInt(limit, 10) : 10);
   }
 
+  @Public()
   @Get('analyze-website/jobs/:jobId')
   @ApiOperation({ summary: 'Get brand analysis job status & progress' })
-  getAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
-    return this.brandService.getAnalysisJob(user.id, jobId);
+  async getAnalyzeJob(@CurrentUser() user: AuthUser | undefined, @Param('jobId') jobId: string) {
+    const userId = await this.resolveAnalysisActorId(user);
+    return this.brandService.getAnalysisJob(userId, jobId);
   }
 
+  @Public()
   @Get('analyze-website/jobs/:jobId/draft')
   @ApiOperation({ summary: 'Get the draft brand knowledge for review' })
-  async getAnalyzeJobDraft(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
-    const job = await this.brandService.getAnalysisJob(user.id, jobId);
+  async getAnalyzeJobDraft(@CurrentUser() user: AuthUser | undefined, @Param('jobId') jobId: string) {
+    const userId = await this.resolveAnalysisActorId(user);
+    const job = await this.brandService.getAnalysisJob(userId, jobId);
     return { status: job.status, draft: job.draftResult };
   }
 
+  @Public()
   @Patch('analyze-website/jobs/:jobId/draft')
   @ApiOperation({ summary: 'Edit draft fields before approving' })
-  patchAnalyzeJobDraft(
-    @CurrentUser() user: AuthUser,
+  async patchAnalyzeJobDraft(
+    @CurrentUser() user: AuthUser | undefined,
     @Param('jobId') jobId: string,
     @Body() patch: UpdateDraftDto,
   ) {
-    return this.brandService.updateAnalysisJobDraft(user.id, jobId, patch as Partial<BrandAnalysisResult>);
+    const userId = await this.resolveAnalysisActorId(user);
+    return this.brandService.updateAnalysisJobDraft(userId, jobId, patch as Partial<BrandAnalysisResult>);
   }
 
+  @Public()
   @Post('analyze-website/jobs/:jobId/approve')
   @ApiOperation({ summary: 'Approve the draft and commit to brand profile' })
-  approveAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
-    return this.brandService.approveAnalysisJob(user.id, jobId);
+  async approveAnalyzeJob(@CurrentUser() user: AuthUser | undefined, @Param('jobId') jobId: string) {
+    const userId = await this.resolveAnalysisActorId(user);
+    return this.brandService.approveAnalysisJob(userId, jobId);
   }
 
+  @Public()
   @Post('analyze-website/jobs/:jobId/cancel')
   @ApiOperation({ summary: 'Cancel a queued or running brand analysis job' })
-  cancelAnalyzeJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
-    return this.brandService.cancelAnalysisJob(user.id, jobId);
+  async cancelAnalyzeJob(@CurrentUser() user: AuthUser | undefined, @Param('jobId') jobId: string) {
+    const userId = await this.resolveAnalysisActorId(user);
+    return this.brandService.cancelAnalysisJob(userId, jobId);
   }
 
   @Get('markdown')

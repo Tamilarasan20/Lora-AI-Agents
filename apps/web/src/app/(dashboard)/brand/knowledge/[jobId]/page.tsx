@@ -2,17 +2,14 @@
 
 import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { ArrowLeft, Globe, Sparkles } from 'lucide-react';
 import { useBrandKnowledgeJob, useCancelBrandKnowledgeJob } from '@/lib/hooks/useBrand';
 
-/**
- * Pomelli-style "Generating your Knowledge Base" screen.
- * Polls the backend job every 2s and shows weighted progress + per-stage status.
- * Auto-redirects to the review page once status === AWAITING_REVIEW.
- */
 export default function GeneratingBrandKnowledgePage() {
   const params = useParams<{ jobId: string }>();
   const router = useRouter();
   const jobId = params?.jobId as string;
+  const invalidJobId = !jobId || jobId === 'undefined' || jobId === 'null';
   const { data: job, isLoading } = useBrandKnowledgeJob(jobId);
   const cancel = useCancelBrandKnowledgeJob(jobId);
 
@@ -22,176 +19,172 @@ export default function GeneratingBrandKnowledgePage() {
     }
   }, [job?.status, jobId, router]);
 
+  if (invalidJobId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="max-w-lg rounded-[32px] border border-slate-200 bg-white p-10 text-center shadow-[0_24px_60px_rgba(15,23,42,0.10)]">
+          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-slate-900">Couldn&apos;t open this job</h1>
+          <p className="mt-4 text-slate-500">
+            No valid brand analysis id was found. Please start the analysis again from the knowledge base page.
+          </p>
+          <button
+            onClick={() => router.replace('/brand/knowledge')}
+            className="mt-8 rounded-full bg-[#2f80ed] px-6 py-3 font-semibold text-white"
+          >
+            Back to knowledge base
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading || !job) {
-    return <CenteredSpinner label="Loading job…" />;
+    return <CenteredLoading label="Loading analysis…" />;
   }
 
   const failed = job.status === 'FAILED';
   const cancelled = job.status === 'CANCELLED';
-  const progress = job.progressPct ?? 0;
+  const jobDraft = (job.draftResult ?? {}) as Record<string, any>;
+  const previewImages =
+    (jobDraft.imageUrls as string[] | undefined) ??
+    (jobDraft.referenceImages as string[] | undefined) ??
+    [];
+  const previewImage =
+    previewImages[0] ??
+    (jobDraft.logoUrl as string | undefined) ??
+    null;
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-6">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-3xl mb-4">
-            {failed ? '⚠️' : cancelled ? '⏹' : '✨'}
-          </div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {failed
-              ? 'Generation failed'
-              : cancelled
-              ? 'Generation cancelled'
-              : 'Generating your knowledge base'}
-          </h1>
-          <p className="mt-3 text-gray-600">
-            {failed ? (
-              <>We couldn&apos;t finish analyzing <span className="font-medium">{job.websiteUrl}</span>.</>
-            ) : cancelled ? (
-              <>This run was cancelled. You can start over any time.</>
-            ) : (
-              <>
-                We&apos;re researching and analyzing <span className="font-medium">{job.websiteUrl}</span>.
-                It will take several minutes. Feel free to come back later.
-              </>
-            )}
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col px-4 py-8 md:px-10 md:py-12">
+      <div className="mb-8">
+        <button
+          onClick={() => router.push('/brand/knowledge')}
+          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+      </div>
 
-        {/* Progress bar */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-700">
-              {failed ? 'Stopped' : cancelled ? 'Cancelled' : `${progress}%`}
-            </span>
-            <span className="text-xs text-gray-500">
-              {job.currentStage ? humanStage(job.currentStage) : ''}
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                failed
-                  ? 'bg-red-400'
-                  : cancelled
-                  ? 'bg-gray-300'
-                  : 'bg-gradient-to-r from-violet-500 to-fuchsia-500'
-              }`}
-              style={{ width: `${progress}%` }}
-            />
+      <div className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-[760px] rounded-[40px] border border-[#d7e3f8] bg-white p-7 shadow-[0_32px_90px_rgba(31,78,152,0.12)] md:p-10">
+          <div className="text-center">
+            <h1 className="text-[2.7rem] font-semibold tracking-[-0.05em] text-slate-900 md:text-[3.25rem]">
+              {failed ? 'Generation failed' : cancelled ? 'Generation cancelled' : 'Building your knowledge'}
+            </h1>
+            <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-slate-500">
+              {failed
+                ? `We couldn’t finish analysing ${job.websiteUrl}.`
+                : cancelled
+                ? 'This run was cancelled. You can start again whenever you’re ready.'
+                : 'We’re researching your website, identifying the business, checking competitors, and building the final knowledge base.'}
+            </p>
           </div>
 
-          <ul className="mt-6 space-y-3">
-            {job.stages.map((s) => (
-              <li key={s.key} className="flex items-center gap-3">
-                <StageIcon status={s.status} />
-                <span
-                  className={`text-sm ${
-                    s.status === 'completed'
-                      ? 'text-gray-900'
-                      : s.status === 'running'
-                      ? 'text-gray-900 font-medium'
-                      : s.status === 'failed'
-                      ? 'text-red-600'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  {s.label}
-                </span>
-                {s.error && (
-                  <span className="text-xs text-red-500 truncate">— {s.error}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#ecf9f4] px-5 py-3 text-base font-semibold text-[#10885f]">
+              <Sparkles className="h-4 w-4" />
+              {failed ? 'Stopped' : cancelled ? 'Cancelled' : humanStage(job.currentStage ?? undefined)}
+            </div>
+          </div>
 
-          {failed && job.errorMessage && (
-            <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {job.errorMessage}
+          {previewImage ? (
+            <div className="mt-8 overflow-hidden rounded-[30px] border border-slate-200 bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewImage}
+                alt="Website preview"
+                className="h-[260px] w-full object-cover object-top"
+              />
+            </div>
+          ) : (
+            <div className="mt-8 flex h-[260px] items-center justify-center rounded-[30px] border border-slate-200 bg-[radial-gradient(circle_at_50%_20%,rgba(47,128,237,0.10),transparent_35%),#f8fbff]">
+              <div className="text-center text-slate-400">
+                <Globe className="mx-auto h-10 w-10" />
+                <p className="mt-3 text-sm">Preview will appear as we collect assets</p>
+              </div>
             </div>
           )}
 
-          <div className="mt-6 flex items-center justify-between">
-            <button
-              onClick={() => router.push('/brand')}
-              className="text-sm text-gray-600 hover:text-gray-900"
-            >
-              ← Back to Brand
-            </button>
-            {!failed && !cancelled && job.status !== 'APPROVED' && (
+          <div className="mt-8 space-y-4">
+            {job.stages.map((stage) => (
+              <div key={stage.key} className="flex items-center gap-4 text-[1.05rem] text-slate-500">
+                <StageMarker status={stage.status} />
+                <span className={stage.status === 'running' || stage.status === 'completed' ? 'text-slate-800' : ''}>
+                  {stage.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 h-2 overflow-hidden rounded-full bg-[#edf2fb]">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                failed ? 'bg-red-400' : cancelled ? 'bg-slate-300' : 'bg-[#2f80ed]'
+              }`}
+              style={{ width: `${job.progressPct ?? 0}%` }}
+            />
+          </div>
+
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="inline-flex items-center gap-3 rounded-full bg-[#f5f9ff] px-4 py-3 text-sm text-slate-500">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d6e5ff] border-t-[#2f80ed]" />
+              This may take a few minutes
+            </div>
+
+            {!failed && !cancelled ? (
               <button
                 onClick={() => cancel.mutate()}
                 disabled={cancel.isPending}
-                className="text-sm text-gray-500 hover:text-red-600 disabled:opacity-50"
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
-                Cancel this run
+                Cancel run
               </button>
-            )}
-            {(failed || cancelled) && (
+            ) : (
               <button
                 onClick={() => router.push('/brand/knowledge')}
-                className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black"
+                className="rounded-full bg-[#2f80ed] px-5 py-3 text-sm font-semibold text-white"
               >
                 Try again
               </button>
             )}
           </div>
         </div>
-
-        <p className="mt-6 text-center text-xs text-gray-500">
-          Job ID: <span className="font-mono">{jobId}</span>
-        </p>
       </div>
     </div>
   );
 }
 
-function StageIcon({ status }: { status: 'pending' | 'running' | 'completed' | 'failed' }) {
+function StageMarker({ status }: { status: 'pending' | 'running' | 'completed' | 'failed' }) {
   if (status === 'completed') {
-    return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-        ✓
-      </span>
-    );
+    return <span className="h-6 w-6 rounded-full border border-[#9ee5c4] bg-[#ecf9f4]" />;
   }
   if (status === 'running') {
-    return (
-      <span className="inline-flex h-6 w-6 items-center justify-center">
-        <span className="block h-4 w-4 animate-spin rounded-full border-2 border-violet-300 border-t-violet-600" />
-      </span>
-    );
+    return <span className="h-6 w-6 rounded-full border-2 border-[#c9daf8] bg-white" />;
   }
   if (status === 'failed') {
-    return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-100 text-red-600">
-        !
-      </span>
-    );
+    return <span className="h-6 w-6 rounded-full border border-red-200 bg-red-50" />;
   }
-  return (
-    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-gray-300 text-gray-400">
-      ○
-    </span>
-  );
+  return <span className="h-6 w-6 rounded-full border-2 border-slate-300 bg-white" />;
 }
 
-function humanStage(key: string) {
+function humanStage(stage?: string) {
   const map: Record<string, string> = {
-    crawl: 'Crawling pages…',
-    images: 'Saving brand assets…',
-    extract: 'Reading the brand mind…',
-    documents: 'Writing knowledge docs…',
-    finalize: 'Finalizing…',
+    crawl: 'Website Analyse',
+    images: 'Analysing Brand Assets',
+    extract: 'Business Identification',
+    documents: 'Analysing Competitor',
+    finalize: 'Building your knowledge',
   };
-  return map[key] ?? key;
+  return stage ? (map[stage] ?? stage) : 'Analysing your website';
 }
 
-function CenteredSpinner({ label }: { label: string }) {
+function CenteredLoading({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
-        <span className="block h-6 w-6 mx-auto animate-spin rounded-full border-2 border-violet-300 border-t-violet-600" />
-        <p className="mt-3 text-sm text-gray-500">{label}</p>
+        <span className="mx-auto block h-8 w-8 animate-spin rounded-full border-2 border-[#d6e5ff] border-t-[#2f80ed]" />
+        <p className="mt-4 text-sm text-slate-500">{label}</p>
       </div>
     </div>
   );

@@ -10,22 +10,37 @@ const ONBOARDING_PATH = '/onboarding';
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 function AuthSync({ children }: { children: React.ReactNode }) {
-  const { syncFromSupabase, reset } = useAuthStore();
+  const { syncFromSupabase, reset, setLoading } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!isSupabaseConfigured) {
       reset();
       return undefined;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) syncFromSupabase(session.user);
-    });
+    setLoading(true);
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (cancelled) return;
+        if (session?.user) {
+          await syncFromSupabase(session.user);
+          return;
+        }
+        reset();
+      })
+      .catch(() => {
+        if (!cancelled) reset();
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        setLoading(true);
         syncFromSupabase(session.user).then(() => {
           const user = useAuthStore.getState().user;
           const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p));
@@ -38,8 +53,11 @@ function AuthSync({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [syncFromSupabase, reset, router, pathname]);
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [syncFromSupabase, reset, setLoading, router, pathname]);
 
   return <>{children}</>;
 }

@@ -1,43 +1,40 @@
 'use client';
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Trash2, RotateCcw, Wifi, WifiOff, Sparkles, ChevronDown } from 'lucide-react';
-import { useChat, AGENT_META, AgentType, ChatMessage } from '@/lib/hooks/useChat';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Paperclip, Send, Settings, Wifi, WifiOff } from 'lucide-react';
+import { AGENT_META, AgentType, ChatMessage, useChat } from '@/lib/hooks/useChat';
 import { cn } from '@/lib/utils';
 
 const QUICK_PROMPTS: Record<AgentType, string[]> = {
   lora: [
-    'What can Loraloop help me with?',
-    'How do I schedule my first post?',
-    'Explain the AI agents',
-    'How does content approval work?',
+    'Find top 5 trending topic in your niche',
+    'Create next 5 posts idea',
+    'Analyse my insta account performance suggest improvement',
   ],
   clara: [
-    'Write an Instagram post about our summer sale',
-    'Adapt this caption for Twitter',
-    'Give me 5 hashtag ideas for a fitness brand',
-    'Write a LinkedIn thought leadership post',
+    'Write 3 Instagram captions for our next launch',
+    'Turn this idea into a short LinkedIn post',
+    'Give me a week of content hooks',
   ],
   sarah: [
-    'Help me reply to a negative comment',
-    'How should I respond to DMs on Instagram?',
-    'Write a community engagement reply',
-    'How to handle a PR crisis on social media',
+    'Help me reply to negative comments politely',
+    'Write DM replies for warm leads',
+    'Create a social engagement playbook',
   ],
   mark: [
-    'What is a good engagement rate?',
-    'Best times to post on Instagram',
-    'How to grow on LinkedIn in 2025',
-    'Interpret my analytics data',
+    'Review my account analytics and summarize insights',
+    'What content format is growing fastest for this niche?',
+    'How do I improve retention on short-form video?',
   ],
 };
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-1 px-1 py-2">
+    <div className="flex items-center gap-1 py-1">
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
-          className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+          className="h-2.5 w-2.5 animate-bounce rounded-full bg-slate-300"
           style={{ animationDelay: `${delay}ms` }}
         />
       ))}
@@ -45,281 +42,203 @@ function TypingIndicator() {
   );
 }
 
-function MessageBubble({ message, agentMeta }: {
+function MessageBubble({
+  message,
+  agentMeta,
+}: {
   message: ChatMessage;
   agentMeta: typeof AGENT_META[AgentType];
 }) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={cn('flex gap-3 group', isUser ? 'flex-row-reverse' : 'flex-row')}>
-      {/* Avatar */}
+    <div className={cn('flex gap-4', isUser ? 'justify-end' : 'justify-start')}>
       {!isUser && (
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 mt-1 shadow-sm"
-          style={{ background: agentMeta.color + '20', border: `2px solid ${agentMeta.color}30` }}
-        >
-          <span>{agentMeta.emoji}</span>
+        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[radial-gradient(circle_at_50%_30%,#f8b4d9,#8b5cf6_72%,#2f80ed)] text-lg font-semibold text-white shadow-sm">
+          {agentMeta.name[0]}
         </div>
       )}
-
-      <div className={cn('max-w-[75%] space-y-1', isUser ? 'items-end' : 'items-start', 'flex flex-col')}>
-        {!isUser && (
-          <span className="text-xs font-medium text-gray-400 px-1">{agentMeta.name}</span>
-        )}
-
+      <div className={cn('max-w-[820px]', isUser ? 'order-first' : '')}>
+        {!isUser && <p className="mb-2 text-sm font-medium text-slate-400">{agentMeta.name}</p>}
         <div
           className={cn(
-            'px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm',
+            'rounded-[28px] px-5 py-4 text-[15px] leading-8 shadow-sm',
             isUser
-              ? 'bg-brand-600 text-white rounded-tr-sm'
-              : 'bg-white border border-gray-100 text-gray-800 rounded-tl-sm',
+              ? 'bg-[#2f80ed] text-white'
+              : 'border border-slate-200 bg-white text-slate-700',
           )}
         >
           {message.isStreaming && message.content === '' ? (
             <TypingIndicator />
           ) : (
-            <MessageContent content={message.content} isUser={isUser} />
-          )}
-          {message.isStreaming && message.content !== '' && (
-            <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5 align-middle" />
+            <MessageContent content={message.content} />
           )}
         </div>
-
-        <span className="text-xs text-gray-400 px-1">
-          {message.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-        </span>
       </div>
     </div>
   );
 }
 
-function MessageContent({ content, isUser }: { content: string; isUser: boolean }) {
-  // Simple markdown-ish renderer: bold, code, bullet lists
-  const lines = content.split('\n');
+function MessageContent({ content }: { content: string }) {
   return (
-    <div className="space-y-1">
-      {lines.map((line, i) => {
-        if (line.startsWith('**') && line.endsWith('**')) {
-          return <p key={i} className="font-semibold">{line.slice(2, -2)}</p>;
-        }
-        if (line.startsWith('- ') || line.startsWith('• ')) {
-          return (
-            <div key={i} className="flex gap-2">
-              <span className={isUser ? 'text-brand-200' : 'text-brand-500'}>•</span>
-              <span>{renderInline(line.slice(2))}</span>
-            </div>
-          );
-        }
-        if (line.startsWith('# ')) {
-          return <p key={i} className="font-bold text-base">{line.slice(2)}</p>;
-        }
-        if (line.startsWith('## ')) {
-          return <p key={i} className="font-semibold">{line.slice(3)}</p>;
-        }
-        if (line === '') return <div key={i} className="h-1" />;
-        return <p key={i}>{renderInline(line)}</p>;
-      })}
+    <div className="space-y-2">
+      {content.split('\n').map((line, index) => (
+        <p key={`${line}-${index}`}>{line || '\u00a0'}</p>
+      ))}
     </div>
   );
 }
 
-function renderInline(text: string): React.ReactNode {
-  // Bold: **text**
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code key={i} className="bg-black/10 px-1 py-0.5 rounded text-xs font-mono">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return part;
-  });
-}
-
 export default function ChatPage() {
   const sessionId = useMemo(() => `session_${Date.now()}`, []);
-  const { messages, activeAgent, isConnected, isStreaming, sendMessage, clearChat, switchAgent } =
-    useChat(sessionId);
-
+  const { messages, activeAgent, isConnected, isStreaming, sendMessage, clearChat } = useChat(sessionId);
   const [input, setInput] = useState('');
-  const [showAgentPicker, setShowAgentPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const agentMeta = AGENT_META[activeAgent];
+  const suggestions = QUICK_PROMPTS[activeAgent];
+  const showWelcome = messages.length <= 1;
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = useCallback(() => {
-    const text = input.trim();
-    if (!text || isStreaming) return;
-    sendMessage(text);
+    const value = input.trim();
+    if (!value || isStreaming) return;
+    sendMessage(value);
     setInput('');
-    inputRef.current?.focus();
+    textareaRef.current?.focus();
   }, [input, isStreaming, sendMessage]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Agent sidebar */}
-      <div className="w-64 bg-white border-r border-gray-100 flex flex-col flex-shrink-0">
-        <div className="px-4 py-5 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900 text-sm">AI Agents</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Select your assistant</p>
-        </div>
-
-        <div className="p-3 space-y-1 flex-1">
-          {(Object.entries(AGENT_META) as [AgentType, typeof AGENT_META[AgentType]][]).map(([key, meta]) => (
-            <button
-              key={key}
-              onClick={() => switchAgent(key)}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all',
-                activeAgent === key
-                  ? 'text-white shadow-sm'
-                  : 'text-gray-700 hover:bg-gray-50',
-              )}
-              style={
-                activeAgent === key
-                  ? { background: meta.color }
-                  : {}
-              }
-            >
-              <span className="text-xl w-8 h-8 flex items-center justify-center rounded-lg bg-white/20 flex-shrink-0">
-                {meta.emoji}
-              </span>
-              <div className="min-w-0">
-                <p className="font-medium text-sm">{meta.name}</p>
-                <p className={cn('text-xs truncate', activeAgent === key ? 'text-white/70' : 'text-gray-400')}>
-                  {meta.tagline}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Connection status */}
-        <div className="px-4 py-3 border-t border-gray-100">
-          <div className="flex items-center gap-2">
-            {isConnected ? (
-              <><Wifi className="w-3.5 h-3.5 text-green-500" /><span className="text-xs text-green-600">Connected</span></>
-            ) : (
-              <><WifiOff className="w-3.5 h-3.5 text-red-400" /><span className="text-xs text-red-500">Offline</span></>
-            )}
+    <div className="flex min-h-screen bg-transparent">
+      <div className="hidden w-[370px] flex-col overflow-hidden border-r border-slate-200 bg-[linear-gradient(180deg,#0a55b2_0%,#06397a_100%)] text-white md:flex">
+        <div className="relative px-6 pb-10 pt-8">
+          <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,0.28),transparent_55%)]" />
+          <div className="relative overflow-hidden rounded-[34px]">
+            <div className="h-[260px] bg-[radial-gradient(circle_at_50%_25%,rgba(255,211,165,0.95),rgba(139,92,246,0.7)_48%,rgba(10,85,178,0.85)_80%),linear-gradient(180deg,#fbbf24_0%,#1d4ed8_100%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#0b4a9a] via-[#0b4a9a]/90 to-transparent" />
           </div>
-        </div>
-      </div>
 
-      {/* Main chat area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-sm"
-              style={{ background: agentMeta.color + '15', border: `2px solid ${agentMeta.color}20` }}
-            >
-              {agentMeta.emoji}
-            </div>
+          <div className="relative -mt-1 flex items-end justify-between gap-4 px-4">
             <div>
-              <h1 className="font-semibold text-gray-900">{agentMeta.name}</h1>
-              <p className="text-xs text-gray-400">{agentMeta.tagline}</p>
+              <h1 className="text-[2.6rem] font-semibold tracking-[-0.05em]">{agentMeta.name}</h1>
+              <p className="mt-1 text-[1.35rem] text-white/80">{agentMeta.tagline}</p>
+            </div>
+            <div className="flex items-center gap-3 pb-3">
+              <button type="button" className="rounded-2xl border border-white/20 bg-white/10 p-2.5">
+                <ImagePlus className="h-5 w-5" />
+              </button>
+              <button type="button" className="rounded-2xl border border-white/20 bg-white/10 p-2.5">
+                <Settings className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
           <button
             onClick={clearChat}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+            className="relative mt-8 w-full rounded-full bg-[#2f80ed] px-6 py-4 text-2xl font-semibold shadow-[0_18px_32px_rgba(47,128,237,0.35)]"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> New chat
+            + New Chat
           </button>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5 min-h-0">
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} agentMeta={AGENT_META[msg.agent]} />
-          ))}
-          <div ref={bottomRef} />
+        <div className="flex flex-1 items-center justify-center px-10 text-center">
+          <div>
+            <p className="text-4xl font-semibold tracking-[-0.04em]">History is empty</p>
+            <p className="mt-4 text-xl leading-9 text-white/70">
+              New conversations will
+              <br />
+              appear here
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-screen flex-1 flex-col">
+        <div className="flex-1 overflow-y-auto px-4 pb-40 pt-8 md:px-12">
+          {showWelcome ? (
+            <div className="flex min-h-[calc(100vh-16rem)] flex-col items-center justify-center">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[30px] bg-[radial-gradient(circle_at_50%_30%,#f8b4d9,#8b5cf6_72%,#2f80ed)] text-3xl font-semibold text-white shadow-[0_24px_48px_rgba(47,128,237,0.18)]">
+                {agentMeta.name[0]}
+              </div>
+              <p className="mt-8 text-center text-[2rem] italic text-slate-700">
+                Hi, How can i help you today
+              </p>
+
+              <div className="mt-8 w-full max-w-[760px] space-y-4">
+                {suggestions.map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => sendMessage(prompt)}
+                    className="flex w-full items-center justify-between rounded-[28px] border border-slate-200 bg-white px-8 py-6 text-left text-[1.05rem] font-medium text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition hover:border-[#c9daf8] hover:shadow-[0_18px_36px_rgba(47,128,237,0.08)]"
+                  >
+                    <span>{prompt}</span>
+                    <span className="text-3xl text-slate-300">›</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-[920px] space-y-6 pt-8">
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} agentMeta={AGENT_META[message.agent]} />
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
         </div>
 
-        {/* Quick prompts — shown when only welcome message exists */}
-        {messages.length <= 1 && (
-          <div className="px-6 pb-3">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-xs font-medium text-gray-400">Quick prompts</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {QUICK_PROMPTS[activeAgent].map((prompt) => (
+        <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white/90 px-4 py-5 backdrop-blur md:left-[336px] md:px-12">
+          <div className="mx-auto max-w-[1120px]">
+            <div className="rounded-[36px] border border-slate-200 bg-white px-4 py-4 shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
+              <div className="flex items-center gap-4">
                 <button
-                  key={prompt}
-                  onClick={() => sendMessage(prompt)}
-                  className="px-3 py-1.5 text-xs rounded-full border border-gray-200 bg-white text-gray-600 hover:border-brand-300 hover:text-brand-700 transition-colors"
+                  type="button"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500"
                 >
-                  {prompt}
+                  <Paperclip className="h-5 w-5" />
                 </button>
-              ))}
+
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  rows={1}
+                  placeholder="How can Loraloop help you today?"
+                  disabled={!isConnected}
+                  className="max-h-32 min-h-[28px] flex-1 resize-none bg-transparent text-lg text-slate-700 outline-none placeholder:text-slate-300 disabled:opacity-50"
+                />
+
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isStreaming || !isConnected}
+                  className={cn(
+                    'flex h-12 w-12 items-center justify-center rounded-full transition',
+                    input.trim() && isConnected && !isStreaming
+                      ? 'bg-[#2f80ed] text-white shadow-[0_12px_24px_rgba(47,128,237,0.24)]'
+                      : 'bg-slate-100 text-slate-300',
+                  )}
+                >
+                  <Send className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col items-center gap-2 text-sm text-slate-400">
+              <div className="flex items-center gap-2">
+                {isConnected ? <Wifi className="h-4 w-4 text-emerald-500" /> : <WifiOff className="h-4 w-4 text-red-400" />}
+                <span>{isConnected ? 'Loraloop Helpers can make mistakes. Verify important information.' : 'Chat is offline right now.'}</span>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Input bar */}
-        <div className="bg-white border-t border-gray-100 px-4 py-4 flex-shrink-0">
-          <div className="flex items-end gap-3 bg-gray-50 rounded-2xl border border-gray-200 px-4 py-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition-all">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`Message ${agentMeta.name}…`}
-              rows={1}
-              disabled={!isConnected}
-              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none max-h-32 leading-relaxed disabled:opacity-50"
-              style={{ minHeight: '24px' }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming || !isConnected}
-              className={cn(
-                'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 transition-all',
-                input.trim() && !isStreaming && isConnected
-                  ? 'text-white shadow-sm hover:opacity-90'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed',
-              )}
-              style={
-                input.trim() && !isStreaming && isConnected
-                  ? { background: agentMeta.color }
-                  : {}
-              }
-            >
-              {isStreaming ? (
-                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-          <p className="text-xs text-gray-400 text-center mt-2">
-            Press Enter to send · Shift+Enter for new line
-          </p>
         </div>
       </div>
     </div>
