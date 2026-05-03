@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Brain,
   Building2,
@@ -65,7 +66,17 @@ const DOCUMENT_LABELS: Record<string, string> = {
 };
 
 export default function BrandPage() {
-  const [tab, setTab] = useState<Tab>('analyze');
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    requestedTab && TABS.some((item) => item.key === requestedTab) ? (requestedTab as Tab) : 'analyze',
+  );
+
+  useEffect(() => {
+    if (requestedTab && TABS.some((item) => item.key === requestedTab)) {
+      setTab(requestedTab as Tab);
+    }
+  }, [requestedTab]);
 
   return (
     <div className="min-h-full bg-[#FAFBFC]">

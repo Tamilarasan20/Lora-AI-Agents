@@ -17,6 +17,13 @@ type DocumentKey =
   | 'brandGuidelines'
   | 'visualIntelligence';
 
+type LocalDocumentKey =
+  | 'business_profile'
+  | 'market_research'
+  | 'social_strategy'
+  | 'brand_guidelines'
+  | 'visual_intelligence';
+
 const documentMeta: { key: DocumentKey; label: string }[] = [
   { key: 'businessProfile', label: 'Business profile' },
   { key: 'marketResearch', label: 'Market research' },
@@ -24,6 +31,14 @@ const documentMeta: { key: DocumentKey; label: string }[] = [
   { key: 'visualIntelligence', label: 'SEO/GEO keywords' },
   { key: 'brandGuidelines', label: 'Brand guidelines' },
 ];
+
+const localDocumentKeyMap: Record<DocumentKey, LocalDocumentKey> = {
+  businessProfile: 'business_profile',
+  marketResearch: 'market_research',
+  socialStrategy: 'social_strategy',
+  brandGuidelines: 'brand_guidelines',
+  visualIntelligence: 'visual_intelligence',
+};
 
 export default function ReviewBrandKnowledgePage() {
   const params = useParams<{ jobId: string }>();
@@ -37,6 +52,8 @@ export default function ReviewBrandKnowledgePage() {
   const [tab, setTab] = useState<ReviewTab>('all');
   const [activeDocument, setActiveDocument] = useState<DocumentKey>('businessProfile');
   const [openDocument, setOpenDocument] = useState<DocumentKey | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const documentUploadRef = useRef<HTMLInputElement>(null);
   const imageUploadRef = useRef<HTMLInputElement>(null);
   const initialDraft = useMemo(() => job?.draftResult ?? {}, [job?.draftResult]);
@@ -100,10 +117,87 @@ export default function ReviewBrandKnowledgePage() {
     await updateDraft.mutateAsync(patch);
   };
 
+  const saveApprovedKnowledgeBase = async () => {
+    const documents = documentMeta.reduce<Record<LocalDocumentKey, string>>((acc, { key }) => {
+      acc[localDocumentKeyMap[key]] = String(draft.documents?.[key]?.content ?? '');
+      return acc;
+    }, {
+      business_profile: '',
+      market_research: '',
+      social_strategy: '',
+      brand_guidelines: '',
+      visual_intelligence: '',
+    });
+
+    const imageUrls = ((draft.referenceImages ?? draft.imageUrls ?? []) as string[]).filter(Boolean);
+    const competitors = ((draft.competitors ?? []) as unknown[])
+      .map((competitor) => {
+        if (typeof competitor === 'string') return competitor;
+        if (competitor && typeof competitor === 'object') {
+          return String((competitor as { handle?: unknown; name?: unknown }).handle ?? (competitor as { name?: unknown }).name ?? '');
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .map((handle) => ({
+        id: crypto.randomUUID(),
+        platform: 'web',
+        handle,
+        addedAt: new Date().toISOString(),
+      }));
+
+    const response = await fetch('/api/brand', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        brandName: draft.brandName ?? '',
+        industry: draft.industry ?? '',
+        websiteUrl: job.websiteUrl,
+        targetAudience: draft.targetAudience ?? '',
+        founderStory: draft.founderStory ?? null,
+        products: draft.products ?? [],
+        keySellingPoints: draft.keySellingPoints ?? [],
+        retailPresence: draft.retailPresence ?? [],
+        marketingGoals: draft.marketingGoals ?? [],
+        seoKeywords: draft.seoKeywords ?? [],
+        tone: draft.tone ?? 'professional',
+        voiceCharacteristics: draft.voiceCharacteristics ?? [],
+        prohibitedWords: draft.prohibitedWords ?? [],
+        preferredHashtags: draft.preferredHashtags ?? [],
+        brandColors: {
+          secondary: [],
+          ...(draft.brandColors ?? {}),
+        },
+        competitors,
+        logoUrl: draft.logoUrl ?? '',
+        referenceImages: imageUrls,
+        productDescription: draft.productDescription ?? '',
+        valueProposition: draft.valueProposition ?? '',
+        contentPillars: draft.contentPillars ?? [],
+        pagesScraped: draft.pagesScraped ?? [],
+        lastValidatedAt: new Date().toISOString(),
+        documents,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error ?? 'Could not save the knowledge base.');
+    }
+  };
+
   const onApprove = async () => {
-    await onSave();
-    await approve.mutateAsync();
-    router.push('/brand');
+    setSaveError(null);
+    setIsApproving(true);
+    try {
+      await onSave();
+      await approve.mutateAsync();
+      await saveApprovedKnowledgeBase();
+      router.push('/brand?tab=knowledge');
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save the knowledge base.');
+      setIsApproving(false);
+    }
   };
 
   const documents = draft.documents ?? {};
@@ -131,7 +225,7 @@ export default function ReviewBrandKnowledgePage() {
   const onImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
-    const urls = files.map((file) => URL.createObjectURL(file));
+    const urls = await Promise.all(files.map(readFileAsDataUrl));
     const nextImages = [...new Set([...(imageUrls ?? []), ...urls])];
     setField('imageUrls', nextImages);
     setField('referenceImages', nextImages);
@@ -343,12 +437,15 @@ export default function ReviewBrandKnowledgePage() {
           </button>
           <button
             onClick={onApprove}
-            disabled={approve.isPending || updateDraft.isPending}
+            disabled={isApproving || approve.isPending || updateDraft.isPending}
             className="rounded-full bg-[#2f80ed] px-10 py-4 text-2xl font-semibold text-white shadow-[0_18px_32px_rgba(47,128,237,0.22)] disabled:opacity-50"
           >
-            {approve.isPending ? 'Saving…' : 'Looks Good'}
+            {isApproving ? 'Saving…' : 'Looks Good'}
           </button>
         </div>
+        {saveError && (
+          <p className="pb-4 text-center text-sm font-medium text-red-600">{saveError}</p>
+        )}
       </div>
 
       {openDocument && (
@@ -443,6 +540,15 @@ function renderInlineMarkdown(text: string) {
       return <code key={index} className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">{part.slice(1, -1)}</code>;
     }
     return part;
+  });
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read image file.'));
+    reader.readAsDataURL(file);
   });
 }
 
