@@ -21,6 +21,7 @@
     "@ai-sdk/openai": "^3.0.58",
     "@anthropic-ai/sdk": "^0.27.0",
     "@aws-sdk/client-s3": "^3.620.0",
+    "@aws-sdk/lib-storage": "^3.1041.0",
     "@aws-sdk/s3-request-presigner": "^3.620.0",
     "@fastify/multipart": "^8.3.0",
     "@fastify/static": "^7.0.4",
