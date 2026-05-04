@@ -22,10 +22,15 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ── Response interceptor — on 401 ask Supabase to refresh then retry ─────
+// ── Response interceptor — unwrap NestJS { success, data, timestamp } envelope ─
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    if (res.data && typeof res.data === 'object' && 'success' in res.data && 'data' in res.data) {
+      res.data = res.data.data;
+    }
+    return res;
+  },
   async (error: AxiosError) => {
     if (!isSupabaseConfigured) {
       return Promise.reject(error);
