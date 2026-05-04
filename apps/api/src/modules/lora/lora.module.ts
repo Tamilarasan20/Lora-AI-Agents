@@ -11,7 +11,7 @@ import { ImageGenerationModule } from '../image-generation/image-generation.modu
 import { QueueModule } from '../../queue/queue.module';
 import { SteveService } from '../agents/steve/steve.service';
 import { LoraStrategyProcessor } from './processors/lora-strategy.processor';
-import { LoraAgentTaskProcessor } from './processors/agent-task.processor';
+import { LoraAgentTaskProcessor } from './processors/lora-agent-task.processor';
 import { LoraReviewProcessor } from './processors/lora-review.processor';
 import { CalendarSyncProcessor } from './processors/calendar-sync.processor';
 import { SocialPublishingProcessor } from './processors/social-publishing.processor';
