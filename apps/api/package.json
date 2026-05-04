@@ -49,6 +49,7 @@
     "dayjs": "^1.11.13",
     "fastify": "^4.28.0",
     "ioredis": "^5.4.1",
+    "jwks-rsa": "^4.0.1",
     "kafkajs": "^2.2.4",
     "openai": "^4.55.0",
     "passport": "^0.7.0",
