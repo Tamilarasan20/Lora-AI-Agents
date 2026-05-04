@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function GET() {
-  return NextResponse.json(readBrandProfile().dna);
+  const data = await nestProxy('/brand/intelligence/dna');
+  return NextResponse.json(data);
 }

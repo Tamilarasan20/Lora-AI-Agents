@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile, updateBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function GET() {
-  return NextResponse.json(readBrandProfile());
+  const data = await nestProxy('/brand');
+  return NextResponse.json(data);
 }
 
 export async function PUT(request: Request) {
   const body = await request.json();
-  return NextResponse.json(updateBrandProfile(body));
+  const data = await nestProxy('/brand', { method: 'PATCH', body: JSON.stringify(body) });
+  return NextResponse.json(data);
 }
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  return NextResponse.json(updateBrandProfile(body));
+  const data = await nestProxy('/brand', { method: 'PATCH', body: JSON.stringify(body) });
+  return NextResponse.json(data);
 }

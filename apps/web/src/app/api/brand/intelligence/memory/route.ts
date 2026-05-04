@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const limit = Number(searchParams.get('limit') ?? '10');
-  return NextResponse.json(readBrandProfile().memory.slice(0, limit));
+  const limit = searchParams.get('limit') ?? '10';
+  const data = await nestProxy(`/brand/intelligence/memory?limit=${limit}`);
+  return NextResponse.json(data);
 }

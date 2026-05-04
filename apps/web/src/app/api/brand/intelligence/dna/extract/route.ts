@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile, updateBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function POST() {
-  const brand = readBrandProfile();
-  const dna = {
-    ...brand.dna,
-    extractedAt: new Date().toISOString(),
-  };
-  updateBrandProfile({ dna });
-  return NextResponse.json(dna);
+  const data = await nestProxy('/brand/intelligence/dna/extract', { method: 'POST' });
+  return NextResponse.json(data);
 }

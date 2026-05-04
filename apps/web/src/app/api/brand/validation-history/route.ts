@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function GET() {
-  return NextResponse.json(readBrandProfile().validationHistory);
+  const data = await nestProxy('/brand/validation-history');
+  return NextResponse.json(data);
 }

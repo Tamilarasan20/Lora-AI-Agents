@@ -1,23 +1,13 @@
 import { NextResponse } from 'next/server';
-import { readBrandProfile, updateBrandProfile } from '@/lib/server/brand-store';
+import { nestProxy } from '@/lib/server/nestjs-proxy';
 
 export async function GET() {
-  return NextResponse.json(readBrandProfile().competitors);
+  const data = await nestProxy('/brand/competitors');
+  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const brand = readBrandProfile();
-  const competitor = {
-    id: crypto.randomUUID(),
-    platform: body.platform ?? 'web',
-    handle: body.handle ?? '',
-    addedAt: new Date().toISOString(),
-  };
-
-  const updated = updateBrandProfile({
-    competitors: [...brand.competitors, competitor],
-  });
-
-  return NextResponse.json(updated.competitors);
+  const data = await nestProxy('/brand/competitors', { method: 'POST', body: JSON.stringify(body) });
+  return NextResponse.json(data);
 }
