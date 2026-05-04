@@ -286,11 +286,38 @@ function AnalyzeTab({ onSuccess }: { onSuccess: () => void }) {
 
 function KnowledgeBaseTab() {
   const { data: brand, isLoading } = useBrandProfile();
+  const update = useUpdateBrand();
   const documents = useBrandDocuments();
   const dna = useBrandDna();
   const memory = useBrandMemory(6);
   const validation = useBrandValidationHistory();
   const extractDna = useExtractDna();
+
+  const [form, setForm] = useState({
+    brandName: '',
+    industry: '',
+    valueProposition: '',
+    targetAudience: '',
+    productDescription: '',
+  });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!brand) return;
+    setForm({
+      brandName: brand.brandName ?? '',
+      industry: brand.industry ?? '',
+      valueProposition: brand.valueProposition ?? '',
+      targetAudience: brand.targetAudience ?? '',
+      productDescription: brand.productDescription ?? '',
+    });
+  }, [brand]);
+
+  const handleSave = async () => {
+    await update.mutateAsync(form);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   const docs = (documents.data ?? {}) as Record<string, string | null>;
   const docEntries = Object.entries(DOCUMENT_LABELS).map(([key, label]) => ({
@@ -399,22 +426,56 @@ function KnowledgeBaseTab() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <Card className="rounded-[28px] border-[#E5E7EB] shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-          <CardHeader className="border-b-[#EFF6FF]">
-            <h2 className="font-semibold text-slate-900">Brand snapshot</h2>
-            <p className="mt-0.5 text-sm text-slate-500">
-              The latest profile currently powering content generation and automation.
-            </p>
+          <div className="h-1 w-full bg-gradient-to-r from-[#3B82F6] to-[#BFDBFE]" />
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b-[#EFF6FF]">
+            <div>
+              <h2 className="font-semibold text-slate-900">Brand snapshot</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Edit and save the core profile powering content generation and automation.
+              </p>
+            </div>
+            <Button
+              onClick={handleSave}
+              loading={update.isPending}
+              className="rounded-2xl bg-[#3B82F6] px-5 hover:bg-[#2563EB] focus:ring-[#3B82F6]"
+            >
+              {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              {saved ? 'Saved!' : 'Save changes'}
+            </Button>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <InfoBlock label="Brand name" value={brand?.brandName} />
-              <InfoBlock label="Industry" value={brand?.industry} />
-              <InfoBlock label="Website" value={brand?.websiteUrl} />
-              <InfoBlock label="Tone" value={brand?.tone} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                id="kb-brand-name"
+                label="Brand name"
+                value={form.brandName}
+                onChange={(e) => setForm((f) => ({ ...f, brandName: e.target.value }))}
+                className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
+              />
+              <Input
+                id="kb-industry"
+                label="Industry"
+                value={form.industry}
+                onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
+                className="rounded-2xl border-[#D1D5DB] focus:border-[#60A5FA] focus:ring-[#BFDBFE]"
+              />
             </div>
-            <InfoBlock label="Value proposition" value={brand?.valueProposition} />
-            <InfoBlock label="Target audience" value={brand?.targetAudience} />
-            <InfoBlock label="Product description" value={brand?.productDescription} />
+            <Input id="kb-website" label="Website" value={brand?.websiteUrl ?? ''} disabled className="rounded-2xl border-[#E5E7EB] bg-[#F8FAFC]" />
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Value proposition</label>
+              <textarea rows={2} value={form.valueProposition} onChange={(e) => setForm((f) => ({ ...f, valueProposition: e.target.value }))}
+                className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Target audience</label>
+              <textarea rows={2} value={form.targetAudience} onChange={(e) => setForm((f) => ({ ...f, targetAudience: e.target.value }))}
+                className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Product description</label>
+              <textarea rows={3} value={form.productDescription} onChange={(e) => setForm((f) => ({ ...f, productDescription: e.target.value }))}
+                className="block w-full resize-none rounded-2xl border border-[#D1D5DB] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#BFDBFE]" />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <ColorSection colors={colors} logoUrl={brand?.logoUrl} />
@@ -424,9 +485,9 @@ function KnowledgeBaseTab() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Competitors</h3>
-              {competitors.length ? (
+            {competitors.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Competitors</h3>
                 <div className="flex flex-wrap gap-2">
                   {competitors.map((competitor: any) => (
                     <span key={competitor.id ?? competitor.handle ?? competitor} className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
@@ -434,9 +495,18 @@ function KnowledgeBaseTab() {
                     </span>
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-400">No competitors tracked yet.</p>
-              )}
+              </div>
+            )}
+
+            <div className="flex justify-end border-t border-[#EFF6FF] pt-4">
+              <Button
+                onClick={handleSave}
+                loading={update.isPending}
+                className="rounded-2xl bg-[#3B82F6] px-6 hover:bg-[#2563EB] focus:ring-[#3B82F6]"
+              >
+                {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                {saved ? 'Saved!' : 'Save changes'}
+              </Button>
             </div>
           </CardContent>
         </Card>
