@@ -1392,3 +1392,33 @@ model CompetitorWatchlistItem {
   @@index([businessId])
   @@map("competitor_watchlist")
 }
+
+// ============================================
+// WORKSPACE FILE STORAGE (R2 + Supabase)
+// ============================================
+
+enum FileCategory {
+  UPLOAD
+  KNOWLEDGE_BASE
+  AI_MEDIA
+  EXPORT
+  BRAND_ASSET
+}
+
+model FileMetadata {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String       @db.Uuid
+  uploadedBy   String       @db.Uuid
+  bucket       String       @db.VarChar(100)
+  r2Key        String       @unique @db.VarChar(1000)
+  originalName String       @db.VarChar(500)
+  mimeType     String       @db.VarChar(100)
+  size         BigInt
+  category     FileCategory @default(UPLOAD)
+  createdAt    DateTime     @default(now())
+
+  @@index([workspaceId])
+  @@index([uploadedBy])
+  @@index([workspaceId, category])
+  @@map("file_metadata")
+}

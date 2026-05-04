@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { passportJwtSecret, GetVerificationKey } from 'jwks-rsa';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../email/email.service';
 
@@ -30,13 +31,31 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     private readonly prisma: PrismaService,
     @Optional() private readonly email: EmailService,
   ) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey:
-        config.get<string>('SUPABASE_JWT_SECRET') ||
-        config.get<string>('app.jwt.secret'),
-    });
+    const jwksUri    = config.get<string>('SUPABASE_JWKS_URL');
+    const jwtSecret  = config.get<string>('SUPABASE_JWT_SECRET') || config.get<string>('app.jwt.secret');
+
+    // Build options before super() — conditional super() is not allowed in JS
+    const strategyOptions = jwksUri
+      ? {
+          // Supabase ES256 — public key fetched and cached from JWKS
+          jwtFromRequest:      ExtractJwt.fromAuthHeaderAsBearerToken(),
+          ignoreExpiration:    false,
+          secretOrKeyProvider: passportJwtSecret({
+            cache:                 true,
+            rateLimit:             true,
+            jwksRequestsPerMinute: 10,
+            jwksUri,
+          }) as GetVerificationKey,
+          algorithms: ['ES256'] as string[],
+        }
+      : {
+          // Fallback: HS256 symmetric secret (local dev without JWKS configured)
+          jwtFromRequest:  ExtractJwt.fromAuthHeaderAsBearerToken(),
+          ignoreExpiration: false,
+          secretOrKey:     jwtSecret,
+        };
+
+    super(strategyOptions);
   }
 
   async validate(payload: SupabaseJwtPayload): Promise<AuthUser> {

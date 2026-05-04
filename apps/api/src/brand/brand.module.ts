@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { BrandService } from './brand.service';
 import { BrandController } from './brand.controller';
 import { BrandCrawlerService } from './brand-crawler.service';
+import { Crawl4aiClient } from './crawl4ai-client.service';
 import { StorageModule } from '../storage/storage.module';
 import { LlmRouterModule } from '../llm-router/llm-router.module';
 import { VectorModule } from '../vector/vector.module';
@@ -23,6 +24,7 @@ import { QueueModule } from '../queue/queue.module';
   ],
   controllers: [BrandController],
   providers: [
+    Crawl4aiClient,
     BrandCrawlerService,
     BrandService,
     BrandMemoryService,
