@@ -21,10 +21,13 @@ model User {
   fullName            String?    @db.VarChar(255)
   avatarUrl           String?
   timezone            String     @default("UTC") @db.VarChar(50)
-  plan                Plan       @default(FREE)
-  planExpiresAt       DateTime?
-  stripeCustomerId    String?    @unique @db.VarChar(255)
-  status              UserStatus @default(ACTIVE)
+  plan                    Plan       @default(FREE)
+  planExpiresAt           DateTime?
+  stripeCustomerId        String?    @unique @db.VarChar(255)
+  subscriptionStatus      String     @default("none") @db.VarChar(50)
+  creditsUsedThisMonth    Int        @default(0)
+  creditsResetAt          DateTime?
+  status                  UserStatus @default(ACTIVE)
   emailVerified       Boolean    @default(false)
   welcomeEmailSent    Boolean    @default(false)
   onboardingComplete  Boolean    @default(false)
@@ -62,8 +65,9 @@ model User {
 
 enum Plan {
   FREE
+  SOLO
   PRO
-  UNLIMITED
+  AGENCY
   ENTERPRISE
 }
 

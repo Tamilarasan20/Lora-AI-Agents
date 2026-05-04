@@ -2,6 +2,8 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useNotifications } from '@/lib/hooks/useNotifications';
+import { UpgradeModalProvider } from '@/components/billing/UpgradeModal';
+import { PaymentFailedBanner } from '@/components/billing/PaymentFailedBanner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -17,11 +19,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 md:ml-64 pt-14 md:pt-0 flex flex-col min-h-screen">
-        {children}
-      </main>
-    </div>
+    <UpgradeModalProvider>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <main className="flex-1 md:ml-64 pt-14 md:pt-0 flex flex-col min-h-screen">
+          <PaymentFailedBanner />
+          {children}
+        </main>
+      </div>
+    </UpgradeModalProvider>
   );
 }

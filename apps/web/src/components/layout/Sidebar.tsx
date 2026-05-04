@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useNotificationsStore } from '@/lib/stores/notifications.store';
 import { useRouter } from 'next/navigation';
+import { useCredits } from '@/lib/hooks/useCredits';
+import { useUpgradeModal } from '@/components/billing/UpgradeModal';
 
 const NAV = [
   { href: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard' },
@@ -24,6 +26,40 @@ const NAV = [
   { href: '/notifications', icon: Bell,             label: 'Notifications' },
   { href: '/workspaces',    icon: Brain,            label: 'AI Knowledge' },
 ];
+
+function CreditsBar() {
+  const { data: credits } = useCredits();
+  const { showUpgrade } = useUpgradeModal();
+
+  if (!credits || credits.limit === 0) return null;
+
+  const pct     = Math.min(100, Math.round((credits.used / credits.limit) * 100));
+  const isLow   = pct >= 80;
+  const isEmpty = credits.remaining === 0;
+
+  return (
+    <div className="px-3 pb-2">
+      <div className="bg-white/5 rounded-xl px-3 py-2.5">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-gray-400">AI Credits</span>
+          <button
+            onClick={() => showUpgrade('credits_low')}
+            className={`text-xs font-semibold ${isEmpty ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-gray-400'} hover:text-white transition-colors`}
+          >
+            {isEmpty ? 'Out of credits' : `${credits.remaining} left`}
+          </button>
+        </div>
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${isEmpty ? 'bg-red-500' : isLow ? 'bg-amber-400' : 'bg-violet-500'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="text-xs text-gray-600 mt-1">{credits.used} / {credits.limit} used</div>
+      </div>
+    </div>
+  );
+}
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
@@ -74,6 +110,9 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
           );
         })}
       </nav>
+
+      {/* Credits indicator */}
+      <CreditsBar />
 
       {/* User section */}
       <div className="border-t border-white/10 p-3 space-y-0.5 flex-shrink-0">

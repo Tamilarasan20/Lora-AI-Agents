@@ -9,6 +9,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { StorageModule } from '../../storage/storage.module';
 import { ImageGenerationModule } from '../image-generation/image-generation.module';
 import { QueueModule } from '../../queue/queue.module';
+import { BillingModule } from '../../billing/billing.module';
 import { SteveService } from '../agents/steve/steve.service';
 import { LoraStrategyProcessor } from './processors/lora-strategy.processor';
 import { LoraAgentTaskProcessor } from './processors/agent-task.processor';
@@ -17,7 +18,7 @@ import { CalendarSyncProcessor } from './processors/calendar-sync.processor';
 import { SocialPublishingProcessor } from './processors/social-publishing.processor';
 
 @Module({
-  imports: [PrismaModule, LlmRouterModule, Phase1AgentsModule, StorageModule, ImageGenerationModule, QueueModule],
+  imports: [PrismaModule, LlmRouterModule, Phase1AgentsModule, StorageModule, ImageGenerationModule, QueueModule, BillingModule],
   controllers: [LoraController],
   providers: [
     LoraService,

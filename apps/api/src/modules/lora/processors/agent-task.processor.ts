@@ -5,6 +5,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { AgentsService } from '../../../modules/agents/agents.service';
 import { SteveService } from '../../../modules/agents/steve/steve.service';
 import { LoraGateway } from '../lora.gateway';
+import { CreditService } from '../../../billing/credit.service';
 import { QUEUE_NAMES } from '../../../queue/queue.constants';
 import { Prisma } from '@prisma/client';
 
@@ -27,6 +28,7 @@ export class LoraAgentTaskProcessor {
     private readonly agents: AgentsService,
     private readonly steve: SteveService,
     private readonly gateway: LoraGateway,
+    private readonly creditService: CreditService,
     private readonly config: ConfigService,
   ) {}
 
@@ -58,6 +60,21 @@ export class LoraAgentTaskProcessor {
     const { userId, businessId, conversationId, taskId } = job.data;
 
     const task = await this.prisma.marketingTask.findFirstOrThrow({ where: { id: taskId } });
+
+    // Credit check — blocks task if user is out of credits or payment is past due
+    const agentKey = task.assignedAgent.toLowerCase();
+    const actionKey = job.name.replace(`run_${agentKey}_`, '') || 'task';
+    try {
+      await this.creditService.checkAndDeduct(userId, agentKey, actionKey);
+    } catch (err: any) {
+      await this.prisma.marketingTask.update({ where: { id: taskId }, data: { status: 'needs_revision' } });
+      this.gateway.emitToUser(userId, 'lora.error', {
+        type: 'credits_exhausted',
+        message: err.message,
+        taskId,
+      });
+      throw err;
+    }
 
     await this.prisma.marketingTask.update({ where: { id: taskId }, data: { status: 'in_progress' } });
     await this.prisma.marketingStrategy.updateMany({
