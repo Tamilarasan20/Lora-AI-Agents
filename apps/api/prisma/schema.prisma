@@ -1392,3 +1392,206 @@ model CompetitorWatchlistItem {
   @@index([businessId])
   @@map("competitor_watchlist")
 }
+
+// ============================================
+// LLM ROUTER — PRODUCTION GRADE
+// ============================================
+
+model LlmProviderRegistry {
+  id                String   @id @default(cuid())
+  name              String   @unique @db.VarChar(50)
+  displayName       String   @db.VarChar(100)
+  isActive          Boolean  @default(true)
+  priority          Int      @default(100)
+
+  supportsText      Boolean  @default(false)
+  supportsImage     Boolean  @default(false)
+  supportsVideo     Boolean  @default(false)
+  supportsAudio     Boolean  @default(false)
+  supportsVision    Boolean  @default(false)
+  supportsSearch    Boolean  @default(false)
+
+  healthStatus      String   @default("unknown") @db.VarChar(20)
+  lastHealthCheckAt DateTime?
+  healthLatencyMs   Int?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  models            LlmModelRegistry[]
+
+  @@map("llm_provider_registry")
+}
+
+model LlmModelRegistry {
+  id                  String   @id @default(cuid())
+  providerId          String
+  provider            LlmProviderRegistry @relation(fields: [providerId], references: [id])
+
+  modelId             String   @unique @db.VarChar(200)
+  displayName         String   @db.VarChar(200)
+
+  modality            String[] @db.VarChar(50)
+  strengths           String[] @db.VarChar(50)
+
+  tier                String   @db.VarChar(20)
+  latencyClass        String   @db.VarChar(20)
+  qualityClass        String   @db.VarChar(20)
+
+  maxInputTokens      Int
+  maxOutputTokens     Int
+
+  inputCostPerMTok    Decimal  @db.Decimal(12, 6)
+  outputCostPerMTok   Decimal  @db.Decimal(12, 6)
+  imageCostUnit       Decimal? @db.Decimal(12, 6)
+  videoCostUnit       Decimal? @db.Decimal(12, 6)
+
+  supportsJson        Boolean  @default(false)
+  supportsTools       Boolean  @default(false)
+  supportsVision      Boolean  @default(false)
+  supportsStreaming    Boolean  @default(false)
+  supportsSearch      Boolean  @default(false)
+
+  isActive            Boolean  @default(true)
+  isDeprecated        Boolean  @default(false)
+
+  qualityScore        Float    @default(0.0)
+  latencyScore        Float    @default(0.0)
+  reliabilityScore    Float    @default(1.0)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tier])
+  @@index([isActive])
+  @@map("llm_model_registry")
+}
+
+model LlmRoutingPolicy {
+  id                  String   @id @default(cuid())
+  name                String   @unique @db.VarChar(100)
+  description         String?
+
+  agentName           String?  @db.VarChar(20)
+  taskType            String?  @db.VarChar(50)
+  modality            String?  @db.VarChar(20)
+
+  minTier             String?  @db.VarChar(20)
+  maxTier             String?  @db.VarChar(20)
+  preferredProviders  String[] @db.VarChar(50)
+  blockedProviders    String[] @db.VarChar(50)
+  requiredStrengths   String[] @db.VarChar(50)
+
+  maxEstimatedCredits Int?
+  maxEstimatedCostUsd Decimal? @db.Decimal(12, 6)
+
+  isActive            Boolean  @default(true)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([agentName])
+  @@index([taskType])
+  @@map("llm_routing_policies")
+}
+
+model AiUsageLedger {
+  id               String   @id @default(cuid())
+
+  workspaceId      String   @db.VarChar(255)
+  userId           String   @db.Uuid
+  agentName        String?  @db.VarChar(20)
+  taskType         String   @db.VarChar(50)
+  modality         String   @db.VarChar(20)
+
+  provider         String   @db.VarChar(50)
+  modelId          String   @db.VarChar(200)
+  routeTier        String   @db.VarChar(20)
+
+  inputTokens      Int      @default(0)
+  outputTokens     Int      @default(0)
+  totalTokens      Int      @default(0)
+
+  estimatedCostUsd Decimal  @db.Decimal(12, 6)
+  actualCostUsd    Decimal? @db.Decimal(12, 6)
+
+  creditsReserved  Int      @default(0)
+  creditsDeducted  Int      @default(0)
+  creditsRefunded  Int      @default(0)
+
+  status           String   @db.VarChar(20)
+  fallbackUsed     Boolean  @default(false)
+  fallbackFromModel String? @db.VarChar(200)
+  fallbackToModel  String?  @db.VarChar(200)
+
+  requestId        String?  @db.VarChar(100)
+  traceId          String?  @db.VarChar(100)
+
+  errorCode        String?  @db.VarChar(50)
+  errorMessage     String?  @db.VarChar(500)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([agentName])
+  @@index([taskType])
+  @@index([createdAt])
+  @@map("ai_usage_ledger")
+}
+
+model AiCreditReservation {
+  id               String   @id @default(cuid())
+  workspaceId      String   @db.VarChar(255)
+  userId           String   @db.Uuid
+
+  ledgerId         String?
+  requestId        String   @db.VarChar(100)
+
+  reservedCredits  Int
+  consumedCredits  Int      @default(0)
+  refundedCredits  Int      @default(0)
+
+  status           String   @db.VarChar(20)
+
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([requestId])
+  @@index([status])
+  @@map("ai_credit_reservations")
+}
+
+model LlmRouterTrace {
+  id               String   @id @default(cuid())
+
+  workspaceId      String   @db.VarChar(255)
+  userId           String   @db.Uuid
+  requestId        String   @db.VarChar(100)
+  agentName        String?  @db.VarChar(20)
+
+  rawUserIntent    String?
+  normalizedTask   Json
+  advisorDecision  Json
+  governorDecision Json
+  selectedModel    String   @db.VarChar(200)
+  fallbackModels   String[] @db.VarChar(200)
+
+  estimatedCredits Int
+  estimatedCostUsd Decimal  @db.Decimal(12, 6)
+
+  status           String   @db.VarChar(20)
+  errorMessage     String?
+
+  createdAt        DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("llm_router_traces")
+}

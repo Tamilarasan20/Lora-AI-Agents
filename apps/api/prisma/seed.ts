@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { seedLlmRouter } from './seed/llm-router.seed';
 
 const prisma = new PrismaClient();
 
@@ -212,6 +213,8 @@ async function main() {
   }
 
   console.log(`🎉 Seeded ${PLUGINS.length} platform plugins`);
+
+  await seedLlmRouter(prisma);
 }
 
 main()

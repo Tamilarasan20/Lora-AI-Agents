@@ -59,7 +59,8 @@
     "sharp": "^0.33.4",
     "stripe": "^16.12.0",
     "uuid": "^10.0.0",
-    "winston": "^3.14.0"
+    "winston": "^3.14.0",
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
