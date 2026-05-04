@@ -110,6 +110,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       FRONTEND_URL: http://localhost:3001
       PORT: 3000
+      CRAWL4AI_API_URL: http://crawl4ai:11235
+      CRAWL4AI_API_TOKEN: ${CRAWL4AI_API_TOKEN:-}
     ports:
       - '3000:3000'
     volumes:
@@ -117,6 +119,23 @@ services:
       - ./apps/api/prisma:/app/prisma
     command: >
       sh -c "pnpm exec prisma migrate deploy && pnpm dev"
+
+  # ── crawl4ai (deep brand crawler) ───────────────────────────────────────
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: loraloop_crawl4ai
+    restart: unless-stopped
+    environment:
+      CRAWL4AI_API_TOKEN: ${CRAWL4AI_API_TOKEN:-}
+    ports:
+      - '11235:11235'
+    shm_size: '1gb'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:11235/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ── Web (Next.js) ────────────────────────────────────────────────────────
   web:
