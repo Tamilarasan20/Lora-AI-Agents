@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server';
 import { runNick, type NickInput, type NickContentItem } from '@/lib/agents/nick';
 import { loadBrandContext } from '@/lib/agents/_loadBrand';
 import { meterIfAuthed } from '@/lib/withCredits';
+import { extractAndStoreFacts } from '@/lib/memory';
+import { getCurrentUser } from '@/lib/supabase-server';
 
 export const maxDuration = 60;
 
@@ -30,6 +32,28 @@ export async function POST(req: Request) {
       goal: body.goal,
       periodLabel: body.periodLabel,
     });
+
+    // Fire-and-forget: extract reflection memories from Nick's analysis.
+    // Reflections are the most valuable memory layer — they capture WHY
+    // a campaign worked or didn't, which steers future strategy.
+    const user = await getCurrentUser();
+    if (user && result.insights?.length) {
+      const raw = JSON.stringify({
+        summary:  result.summary,
+        winners:  result.winners,
+        losers:   result.losers,
+        insights: result.insights,
+        patterns: result.patterns,
+      });
+      extractAndStoreFacts({
+        workspaceId: user.id,
+        agentScope:  'nick',
+        layer:       'reflection',
+        raw,
+        sourceType:  'nick-analysis',
+        metadata:    { period: result.period, verdict: result.scorecard?.overallVerdict },
+      }).catch((err) => console.warn('[nick] memory extraction failed:', err));
+    }
 
     return NextResponse.json({ agent: 'nick', remaining: metered.remaining, result });
   } catch (error) {
