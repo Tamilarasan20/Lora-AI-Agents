@@ -1,12 +1,12 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { LlmRouterService } from '../../llm-router/llm-router.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { LlmRouterService } from '../llm-router/llm-router.service';
 import { AgentsService } from '../agents/agents.service';
 import {
   assignAgent, classifyGoal,
   LoraStrategyOutput, ExecutionWeek, CalendarItemDraft, PHASE_1_AGENT_CREDIT_COSTS,
 } from '../agents/agent.types';
-import { LORA_SYSTEM_PROMPT } from '../agents/prompts/lora.prompt';
+import { LORA_SYSTEM_PROMPT } from '../agents/lora/lora.system-prompt';
 import { CreateStrategyDto } from './dto/create-strategy.dto';
 import { Prisma } from '@prisma/client';
 

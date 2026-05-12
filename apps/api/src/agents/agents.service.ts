@@ -1,16 +1,16 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { LlmRouterService } from '../../llm-router/llm-router.service';
-import { PrismaService } from '../../prisma/prisma.service';
+import { LlmRouterService } from '../llm-router/llm-router.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   AgentName,
   SamOutput, ClaraOutput, SteveOutput, SarahOutput, LoraReviewOutput,
   PHASE_1_AGENT_CREDIT_COSTS,
 } from './agent.types';
-import { LORA_SYSTEM_PROMPT } from './prompts/lora.prompt';
-import { SAM_SYSTEM_PROMPT } from './prompts/sam.prompt';
-import { CLARA_SYSTEM_PROMPT } from './prompts/clara.prompt';
-import { STEVE_SYSTEM_PROMPT } from './prompts/steve.prompt';
-import { SARAH_SYSTEM_PROMPT } from './prompts/sarah.prompt';
+import { LORA_SYSTEM_PROMPT } from './lora/lora.system-prompt';
+import { SAM_SYSTEM_PROMPT } from './sam/sam.system-prompt';
+import { CLARA_SYSTEM_PROMPT } from './clara/clara.system-prompt';
+import { STEVE_SYSTEM_PROMPT } from './steve/steve.system-prompt';
+import { SARAH_SYSTEM_PROMPT } from './sarah/sarah.system-prompt';
 
 @Injectable()
 export class AgentsService {

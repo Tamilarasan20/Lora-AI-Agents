@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, Job } from 'bullmq';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { AgentsService } from '../../../modules/agents/agents.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AgentsService } from '../../agents/agents.service';
 import { LoraGateway } from '../lora.gateway';
-import { QUEUE_NAMES } from '../../../queue/queue.constants';
+import { QUEUE_NAMES } from '../../queue/queue.constants';
 import { Prisma } from '@prisma/client';
 
 export interface ReviewOutputJob {

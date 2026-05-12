@@ -59,7 +59,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
 import { CreativeModule } from './creative/creative.module';
 
 // Phase 1 — Lora AI Marketing Team
-import { LoraModule } from './modules/lora/lora.module';
+import { LoraModule } from './lora/lora.module';
 
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';

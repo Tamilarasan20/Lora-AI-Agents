@@ -1,12 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, Job, Queue } from 'bullmq';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { AgentsService } from '../../../modules/agents/agents.service';
-import { SteveService } from '../../../modules/agents/steve/steve.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AgentsService } from '../../agents/agents.service';
+import { SteveService } from '../../agents/steve/steve.service';
 import { LoraGateway } from '../lora.gateway';
-import { CreditService } from '../../../billing/credit.service';
-import { QUEUE_NAMES } from '../../../queue/queue.constants';
+import { CreditService } from '../../billing/credit.service';
+import { QUEUE_NAMES } from '../../queue/queue.constants';
 import { Prisma } from '@prisma/client';
 
 export interface AgentTaskJob {

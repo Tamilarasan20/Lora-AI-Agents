@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { LoraOrchestrator } from './lora.orchestrator';
-import { QueueService } from '../../queue/queue.service';
+import { QueueService } from '../queue/queue.service';
 import { CreateStrategyDto } from './dto/create-strategy.dto';
 import { ApprovalActionDto, RunAgentTaskDto } from './dto/review-output.dto';
 import { LoraChatDto } from './dto/lora-chat.dto';
-import { QUEUE_NAMES } from '../../queue/queue.constants';
+import { QUEUE_NAMES } from '../queue/queue.constants';
 import { Prisma } from '@prisma/client';
 
 @Injectable()

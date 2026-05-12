@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { ImageGenerationService } from '../../image-generation/image-generation.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ImageGenerationService } from '../../media/image-generation/image-generation.service';
 import { LoraGateway } from '../../lora/lora.gateway';
 import type { AgentsService } from '../agents.service';
-import type { ImageTaskType, BrandContext } from '../../image-generation/image-generation.types';
+import type { ImageTaskType, BrandContext } from '../../media/image-generation/image-generation.types';
 import { Prisma } from '@prisma/client';
 
 export interface SteveGenerateInput {

@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, Job, Queue } from 'bullmq';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { LoraOrchestrator } from '../lora.orchestrator';
 import { LoraGateway } from '../lora.gateway';
-import { QUEUE_NAMES } from '../../../queue/queue.constants';
+import { QUEUE_NAMES } from '../../queue/queue.constants';
 import { Prisma } from '@prisma/client';
 
 export interface CreateStrategyFromChatJob {

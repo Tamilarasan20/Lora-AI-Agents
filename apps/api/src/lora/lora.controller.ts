@@ -2,7 +2,7 @@ import {
   Body, Controller, Delete, Get, Param, ParseUUIDPipe,
   Patch, Post, Query, Request, UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { LoraService } from './lora.service';
 import { CreateStrategyDto } from './dto/create-strategy.dto';
 import { ApprovalActionDto, RunAgentTaskDto } from './dto/review-output.dto';
