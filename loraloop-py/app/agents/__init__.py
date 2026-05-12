@@ -6,5 +6,6 @@ Adding a new agent:
 """
 
 from app.agents.sophie import run as run_sophie
+from app.agents.nick import run as run_nick
 
-__all__ = ["run_sophie"]
+__all__ = ["run_sophie", "run_nick"]

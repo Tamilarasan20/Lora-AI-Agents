@@ -6,6 +6,7 @@ import { MarkAgent } from './mark/mark.agent';
 import { SophieAgent } from './sophie/sophie.agent';
 import { TheoAgent } from './theo/theo.agent';
 import { ElenaAgent } from './elena/elena.agent';
+import { NickAgent } from './nick/nick.agent';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LlmRouterModule } from '../llm-router/llm-router.module';
@@ -34,6 +35,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
     SophieAgent,
     TheoAgent,
     ElenaAgent,
+    NickAgent,
   ],
   exports: [
     AgentsService,
@@ -43,6 +45,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
     SophieAgent,
     TheoAgent,
     ElenaAgent,
+    NickAgent,
   ],
 })
 export class AgentsModule {}

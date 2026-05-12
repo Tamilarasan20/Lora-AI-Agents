@@ -15,7 +15,7 @@ This document tracks the port of all AI agents from the Next.js app
 | Steve  | Social Media Manager   | `steve.ts`        | `agents/steve.py`     | ⏳ Pending |
 | Theo   | Video Producer         | `theo.ts`         | `agents/theo.py`      | ⏳ Pending |
 | Elena  | Ads Manager            | `elena.ts`        | `agents/elena.py`     | ⏳ Pending |
-| Nick   | Performance Analyst    | `nick.ts`         | `agents/nick.py`      | ⏳ Pending |
+| Nick   | Performance Analyst    | `nick.ts`         | `agents/nick.py`      | ✅ Done    |
 | Sarah  | Email Marketer         | `sarah.ts`        | `agents/sarah.py`     | ⏳ Pending |
 | Sam    | Scheduler              | `sam.ts`          | `agents/sam.py`       | ⏳ Pending |
 

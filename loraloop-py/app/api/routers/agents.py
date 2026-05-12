@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from app.agents.sophie import SophieBriefRequest, run as run_sophie
+from app.agents.nick import NickAnalyseRequest, run as run_nick
 from app.llm.providers import FatalProviderError, ProviderError
 
 router = APIRouter()
@@ -24,12 +25,21 @@ async def sophie(req: SophieBriefRequest) -> dict:
         raise HTTPException(status_code=503, detail=str(e)) from e
 
 
+@router.post("/nick")
+async def nick(req: NickAnalyseRequest) -> dict:
+    try:
+        return await run_nick(req)
+    except FatalProviderError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except ProviderError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+
+
 # Stubs — pending port from loraloop-mvp/ts in subsequent PRs
 # @router.post("/lora") ...
 # @router.post("/clara") ...
 # @router.post("/steve") ...
 # @router.post("/theo") ...
 # @router.post("/elena") ...
-# @router.post("/nick") ...
 # @router.post("/sarah") ...
 # @router.post("/sam") ...
