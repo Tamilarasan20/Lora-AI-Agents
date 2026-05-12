@@ -37,8 +37,8 @@ export const JOB_NAMES = {
   CLARA_GENERATE_CONTENT: 'clara-generate-content',
   CLARA_ADAPT_PLATFORM: 'clara-adapt-platform',
   SARAH_PROCESS_ENGAGEMENT: 'sarah-process-engagement',
-  MARK_ANALYZE_TRENDS: 'mark-analyze-trends',
-  MARK_GENERATE_REPORT: 'mark-generate-report',
+  SAM_ANALYZE_TRENDS: 'sam-analyze-trends',
+  SAM_GENERATE_REPORT: 'sam-generate-report',
   // media-process queue
   PROCESS_UPLOADED_MEDIA: 'process-uploaded-media',
   // refresh-token queue

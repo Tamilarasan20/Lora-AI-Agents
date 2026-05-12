@@ -2,7 +2,7 @@ import { ToolDefinition } from '../base-agent';
 import { VectorService } from '../../vector/vector.service';
 import { VECTOR_COLLECTIONS } from '../../vector/vector.types';
 
-export function buildMarkTools(vector: VectorService): ToolDefinition[] {
+export function buildSamTools(vector: VectorService): ToolDefinition[] {
   return [
     {
       name: 'fetch_trending_topics',

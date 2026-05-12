@@ -7,7 +7,7 @@ import {
   PHASE_1_AGENT_CREDIT_COSTS,
 } from './agent.types';
 import { LORA_SYSTEM_PROMPT } from './lora/lora.system-prompt';
-import { SAM_SYSTEM_PROMPT } from './sam/sam.system-prompt';
+import { SAM_SYSTEM_PROMPT } from './sam/sam.prompts';
 import { CLARA_SYSTEM_PROMPT } from './clara/clara.system-prompt';
 import { STEVE_SYSTEM_PROMPT } from './steve/steve.system-prompt';
 import { SARAH_SYSTEM_PROMPT } from './sarah/sarah.system-prompt';

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { ClaraAgent } from './clara/clara.agent';
 import { SarahAgent } from './sarah/sarah.agent';
-import { MarkAgent } from './mark/mark.agent';
+import { SamAgent } from './sam/sam.agent';
 import { SophieAgent } from './sophie/sophie.agent';
 import { TheoAgent } from './theo/theo.agent';
 import { ElenaAgent } from './elena/elena.agent';
@@ -18,7 +18,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
  *   1. Phase-1 prompt-driven agents dispatched via {@link AgentsService}:
  *      Lora, Sam, Clara, Steve, Sarah. System prompts live next to each agent
  *      directory (e.g. `clara/clara.system-prompt.ts`).
- *   2. BaseAgent-subclass providers: Clara, Sarah, Mark, Sophie, Theo, Elena.
+ *   2. BaseAgent-subclass providers: Clara, Sarah, Sam, Sophie, Theo, Elena, Nick.
  *      Each has its own `.agent.ts`, `.prompts.ts`, `.tools.ts` files.
  *
  * SteveService (image-generation orchestrator) is provided by LoraModule
@@ -31,7 +31,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
     AgentsService,
     ClaraAgent,
     SarahAgent,
-    MarkAgent,
+    SamAgent,
     SophieAgent,
     TheoAgent,
     ElenaAgent,
@@ -41,7 +41,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
     AgentsService,
     ClaraAgent,
     SarahAgent,
-    MarkAgent,
+    SamAgent,
     SophieAgent,
     TheoAgent,
     ElenaAgent,

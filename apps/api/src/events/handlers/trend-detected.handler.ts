@@ -24,7 +24,7 @@ export class TrendDetectedHandler implements OnModuleInit {
       `TrendDetected: keywords=${event.payload.keywords.join(',')} score=${event.payload.trendScore}`,
     );
 
-    await this.queueService.addJob(QUEUE_NAMES.AGENT_TASK, JOB_NAMES.MARK_ANALYZE_TRENDS, {
+    await this.queueService.addJob(QUEUE_NAMES.AGENT_TASK, JOB_NAMES.SAM_ANALYZE_TRENDS, {
       trendId: event.payload.trendId,
       keywords: event.payload.keywords,
       hashtags: event.payload.hashtags,

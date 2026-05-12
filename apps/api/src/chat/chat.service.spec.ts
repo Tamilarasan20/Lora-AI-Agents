@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ChatService, AgentType } from './chat.service';
 import { ClaraAgent } from '../agents/clara/clara.agent';
 import { SarahAgent } from '../agents/sarah/sarah.agent';
-import { MarkAgent } from '../agents/mark/mark.agent';
+import { SamAgent } from '../agents/sam/sam.agent';
 
 // Mock Anthropic SDK
 jest.mock('@anthropic-ai/sdk', () => {
@@ -38,7 +38,7 @@ describe('ChatService', () => {
         ChatService,
         { provide: ClaraAgent, useValue: mockAgent },
         { provide: SarahAgent, useValue: mockAgent },
-        { provide: MarkAgent, useValue: mockAgent },
+        { provide: SamAgent, useValue: mockAgent },
       ],
     }).compile();
 
@@ -46,7 +46,7 @@ describe('ChatService', () => {
   });
 
   it('returns agent meta for all 4 agents', () => {
-    const agents: AgentType[] = ['lora', 'clara', 'sarah', 'mark'];
+    const agents: AgentType[] = ['lora', 'clara', 'sarah', 'sam'];
     agents.forEach((a) => {
       const meta = service.getAgentMeta(a);
       expect(meta).toHaveProperty('name');
@@ -97,7 +97,7 @@ describe('ChatService', () => {
   });
 
   it('works with all agent types', async () => {
-    const agents: AgentType[] = ['lora', 'clara', 'sarah', 'mark'];
+    const agents: AgentType[] = ['lora', 'clara', 'sarah', 'sam'];
 
     for (const agent of agents) {
       const events: any[] = [];

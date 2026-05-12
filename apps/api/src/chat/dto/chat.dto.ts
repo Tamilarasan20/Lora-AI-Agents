@@ -10,7 +10,7 @@ export class SendMessageDto {
   message: string;
 
   @IsOptional()
-  @IsIn(['lora', 'clara', 'sarah', 'mark'])
+  @IsIn(['lora', 'clara', 'sarah', 'sam'])
   agent?: string;
 }
 

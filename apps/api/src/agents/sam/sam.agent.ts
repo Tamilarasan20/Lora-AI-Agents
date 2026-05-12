@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
 import { LlmRouterService } from '../../llm-router/llm-router.service';
-import { MARK_SYSTEM_PROMPT } from './mark.prompts';
-import { buildMarkTools } from './mark.tools';
+import { SAM_SYSTEM_PROMPT } from './sam.prompts';
+import { buildSamTools } from './sam.tools';
 import { VectorService } from '../../vector/vector.service';
 
 export interface TrendAnalysisRequest {
@@ -26,9 +26,9 @@ export interface PerformanceReportRequest {
 }
 
 @Injectable()
-export class MarkAgent extends BaseAgent {
-  protected readonly agentName = 'Mark';
-  protected readonly systemPrompt = MARK_SYSTEM_PROMPT;
+export class SamAgent extends BaseAgent {
+  protected readonly agentName = "Sam";
+  protected readonly systemPrompt = SAM_SYSTEM_PROMPT;
   protected readonly tools: ToolDefinition[];
 
   constructor(
@@ -37,7 +37,7 @@ export class MarkAgent extends BaseAgent {
   ) {
     super();
     this.router = router;
-    this.tools = buildMarkTools(vector);
+    this.tools = buildSamTools(vector);
   }
 
   async analyzeTrends(request: TrendAnalysisRequest): Promise<AgentRunResult> {
@@ -50,7 +50,7 @@ export class MarkAgent extends BaseAgent {
       `and recommend a specific content angle for the brand. ` +
       `Return as JSON array with: trend, relevanceScore, lifespanEstimate, contentAngle, urgency.`;
 
-    return this.run(prompt, { request }, { temperature: 0.4, taskType: 'mark-analyze-trends' });
+    return this.run(prompt, { request }, { temperature: 0.4, taskType: "sam-analyze-trends" });
   }
 
   async analyzeCompetitors(request: CompetitorAnalysisRequest): Promise<AgentRunResult> {
@@ -78,7 +78,7 @@ export class MarkAgent extends BaseAgent {
       `Each insight must be specific, quantified where possible, and include an action item. ` +
       `Return as JSON array with: insight, impact (high/medium/low), effort (high/medium/low), actionItem.`;
 
-    return this.run(prompt, { userId, brandId, platforms }, { temperature: 0.5, taskType: 'mark-analyze-trends' });
+    return this.run(prompt, { userId, brandId, platforms }, { temperature: 0.5, taskType: "sam-analyze-trends" });
   }
 
   async generateReport(request: PerformanceReportRequest): Promise<AgentRunResult> {
@@ -90,7 +90,7 @@ export class MarkAgent extends BaseAgent {
       `audience growth analysis, competitive position update, and top 3 recommendations for next ${request.period}. ` +
       `Format as structured markdown report.`;
 
-    return this.run(prompt, { request }, { temperature: 0.3, maxTokens: 8192, taskType: 'mark-generate-report' });
+    return this.run(prompt, { request }, { temperature: 0.3, maxTokens: 8192, taskType: "sam-generate-report" });
   }
 
   async evaluateTrendRelevance(
@@ -105,7 +105,7 @@ export class MarkAgent extends BaseAgent {
       `Then assess: brand fit, audience alignment, risk of backlash, potential reach uplift, and content angle. ` +
       `Return JSON with: shouldEngage (boolean), relevanceScore (0-1), reasoning, suggestedAngle, risks.`;
 
-    return this.run(prompt, { trendKeywords, brandId, platform }, { temperature: 0.3, taskType: 'mark-analyze-trends' });
+    return this.run(prompt, { trendKeywords, brandId, platform }, { temperature: 0.3, taskType: "sam-analyze-trends" });
   }
 
   // Index competitor content into Qdrant for future semantic search

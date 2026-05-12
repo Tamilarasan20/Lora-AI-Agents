@@ -328,7 +328,7 @@ export class BrandController {
   @Get('intelligence/agent/:agent')
   @ApiOperation({ summary: 'Get agent-specific brand intelligence context' })
   getAgentContext(@CurrentUser() user: AuthUser, @Param('agent') agent: string) {
-    const valid: AgentName[] = ['sophie', 'leo', 'nova', 'atlas', 'clara', 'sarah', 'mark', 'general'];
+    const valid: AgentName[] = ['sophie', 'leo', 'nova', 'atlas', 'clara', 'sarah', 'sam', 'general'];
     const agentName: AgentName = valid.includes(agent as AgentName) ? (agent as AgentName) : 'general';
     return this.intel.getAgentContext(user.id, agentName);
   }

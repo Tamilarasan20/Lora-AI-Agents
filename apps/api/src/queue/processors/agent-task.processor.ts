@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Worker, Job } from 'bullmq';
 import { QUEUE_NAMES, JOB_NAMES } from '../queue.constants';
 import { ClaraAgent, ContentBrief } from '../../agents/clara/clara.agent';
-import { MarkAgent } from '../../agents/mark/mark.agent';
+import { SamAgent } from '../../agents/sam/sam.agent';
 import { SarahAgent, EngagementItem } from '../../agents/sarah/sarah.agent';
 import { EventBusService } from '../../events/event-bus.service';
 import { KAFKA_TOPICS } from '../../events/event.types';
@@ -24,7 +24,7 @@ export class AgentTaskProcessor {
 
   constructor(
     private readonly clara: ClaraAgent,
-    private readonly mark: MarkAgent,
+    private readonly sam: SamAgent,
     private readonly sarah: SarahAgent,
     private readonly eventBus: EventBusService,
     private readonly configService: ConfigService,
@@ -77,15 +77,15 @@ export class AgentTaskProcessor {
         result = await this.sarah.processEngagement(input as unknown as EngagementItem);
         break;
 
-      case JOB_NAMES.MARK_ANALYZE_TRENDS:
-        result = await this.mark.analyzeTrends(
-          input as unknown as Parameters<typeof this.mark.analyzeTrends>[0],
+      case JOB_NAMES.SAM_ANALYZE_TRENDS:
+        result = await this.sam.analyzeTrends(
+          input as unknown as Parameters<typeof this.sam.analyzeTrends>[0],
         );
         break;
 
-      case JOB_NAMES.MARK_GENERATE_REPORT:
-        result = await this.mark.generateReport(
-          input as unknown as Parameters<typeof this.mark.generateReport>[0],
+      case JOB_NAMES.SAM_GENERATE_REPORT:
+        result = await this.sam.generateReport(
+          input as unknown as Parameters<typeof this.sam.generateReport>[0],
         );
         break;
 

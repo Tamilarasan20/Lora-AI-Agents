@@ -3,9 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ClaraAgent } from '../agents/clara/clara.agent';
 import { SarahAgent } from '../agents/sarah/sarah.agent';
-import { MarkAgent } from '../agents/mark/mark.agent';
+import { SamAgent } from '../agents/sam/sam.agent';
 
-export type AgentType = 'lora' | 'clara' | 'sarah' | 'mark';
+export type AgentType = 'lora' | 'clara' | 'sarah' | "sam";
 
 export interface ChatMessage {
   id: string;
@@ -25,13 +25,13 @@ const AGENT_META: Record<AgentType, { name: string; emoji: string; color: string
   lora:  { name: 'Lora',  emoji: '✨', color: '#4f5eff', tagline: 'Your AI command centre' },
   clara: { name: 'Clara', emoji: '🎨', color: '#8b5cf6', tagline: 'Content creation expert' },
   sarah: { name: 'Sarah', emoji: '💬', color: '#06b6d4', tagline: 'Engagement & community' },
-  mark:  { name: 'Mark',  emoji: '📊', color: '#10b981', tagline: 'Analytics & strategy' },
+  sam:  { name: "Sam",  emoji: "📊", color: "#10b981", tagline: "Trends & competitor strategy" },
 };
 
 const SYSTEM_PROMPTS: Record<AgentType, string> = {
   lora: `You are Lora, the central AI assistant for Loraloop — an autonomous social media management platform. You help users navigate and get the most from the platform.
 
-You have expertise across all areas: content creation (handled by Clara AI), engagement management (handled by Sarah AI), analytics & strategy (handled by Mark AI), and platform operations.
+You have expertise across all areas: content creation (handled by Clara AI), engagement management (handled by Sarah AI), trend & competitor strategy (handled by Sam AI), and platform operations.
 
 Loraloop features:
 - AI content generation across Instagram, Twitter, LinkedIn, TikTok, Facebook, YouTube
@@ -69,7 +69,7 @@ Your expertise:
 
 When users share comments or messages they need help responding to, craft thoughtful replies. Always ask about brand voice if not established.`,
 
-  mark: `You are Mark, Loraloop's analytics and strategy AI. You turn social media data into actionable insights.
+  sam: `You are Sam, Loraloop's AI Strategist. You turn social media data into actionable insights.
 
 Your expertise:
 - Interpreting engagement rates, reach, impressions, follower growth
@@ -95,7 +95,7 @@ export class ChatService {
   constructor(
     private readonly claraAgent: ClaraAgent,
     private readonly sarahAgent: SarahAgent,
-    private readonly markAgent: MarkAgent,
+    private readonly samAgent: SamAgent,
   ) {
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,

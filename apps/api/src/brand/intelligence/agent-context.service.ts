@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
-export type AgentName = 'sophie' | 'leo' | 'nova' | 'atlas' | 'clara' | 'sarah' | 'mark' | 'general';
+export type AgentName = 'sophie' | 'leo' | 'nova' | 'atlas' | 'clara' | 'sarah' | 'sam' | 'general';
 
 @Injectable()
 export class AgentContextService {
@@ -145,10 +145,10 @@ export class AgentContextService {
           recommendedHashtags: base.preferredHashtags,
         };
 
-      case 'mark': // Engagement
+      case 'sam': // Strategy
         return {
-          agent: 'mark',
-          purpose: 'engagement',
+          agent: 'sam',
+          purpose: 'strategy',
           replyGuidelines: {
             tone: base.tone,
             voice: base.voiceCharacteristics,
