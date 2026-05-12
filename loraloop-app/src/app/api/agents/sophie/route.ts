@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server';
 import { runSophie, type SophieInput } from '@/lib/agents/sophie';
 import { loadBrandContext } from '@/lib/agents/_loadBrand';
 import { meterIfAuthed } from '@/lib/withCredits';
+import { getCurrentUser } from '@/lib/supabase-server';
+import { getMemoryContext, extractFacts } from '@/lib/agents/_memoryContext';
 
 export const maxDuration = 60;
 
@@ -22,6 +24,17 @@ export async function POST(req: Request) {
     if (!metered.ok) return metered.response;
 
     const brand = await loadBrandContext(body.businessId);
+    const user = await getCurrentUser();
+
+    const memoryContext = user
+      ? await getMemoryContext({
+          workspaceId: user.id,
+          query:       body.topic,
+          layers:      ['brand', 'strategic', 'reflection'],
+          agentScopes: ['sophie', 'shared'],
+          limit:       8,
+        })
+      : '';
 
     const result = await runSophie({
       topic: body.topic,
@@ -31,7 +44,19 @@ export async function POST(req: Request) {
       targetKeywords: body.targetKeywords,
       audience: body.audience,
       existingContent: body.existingContent,
+      memoryContext,
     });
+
+    if (user) {
+      extractFacts({
+        workspaceId: user.id,
+        agentScope:  'sophie',
+        layer:       'strategic',
+        raw:         JSON.stringify({ topic: body.topic, brief: result }),
+        sourceType:  'sophie-brief',
+        metadata:    { topic: body.topic, primaryKeyword: result.primaryKeyword },
+      });
+    }
 
     return NextResponse.json({ agent: 'sophie', remaining: metered.remaining, result });
   } catch (error) {

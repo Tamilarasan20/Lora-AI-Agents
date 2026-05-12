@@ -12,15 +12,18 @@ export interface LoraInput {
   businessName: string;
   brandVoice: BrandVoice;
   businessProfile?: string;
+  /** Pre-fetched memory context (strategic + reflection facts). */
+  memoryContext?: string;
 }
 
 export async function runLora(input: LoraInput): Promise<LoraOutput> {
-  const { goal, platform, businessName, brandVoice } = input;
+  const { goal, platform, businessName, brandVoice, memoryContext } = input;
 
   const brandContext = buildBrandContext(brandVoice, businessName);
+  const memoryBlock = memoryContext ? `\n${memoryContext}\n` : '';
 
   const prompt = `You are LORA, CMO for ${businessName}.
-
+${memoryBlock}
 Brand: ${brandContext}
 
 Goal: ${goal}

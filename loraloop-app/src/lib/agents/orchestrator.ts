@@ -9,6 +9,7 @@ import { runLora } from './lora';
 import { runClara } from './clara';
 import { runSteve } from './steve';
 import { getServiceSupabase } from '../supabase';
+import { getMemoryContext, extractFacts } from './_memoryContext';
 
 async function loadBusinessKB(businessId: string): Promise<BusinessKnowledgeBase> {
   const supabase = getServiceSupabase();
@@ -85,6 +86,26 @@ export async function orchestrateContent(input: OrchestratorInput): Promise<Orch
     const brandVoice = extractBrandVoice(kb);
     const brandSummary = generateBrandVoiceSummary(brandVoice);
 
+    // Pre-fetch memory for Lora and Clara in parallel (if a workspaceId was provided).
+    const [loraMemory, claraMemory] = input.workspaceId
+      ? await Promise.all([
+          getMemoryContext({
+            workspaceId: input.workspaceId,
+            query:       input.goal,
+            layers:      ['strategic', 'reflection'],
+            agentScopes: ['lora', 'nick', 'shared'],
+            limit:       8,
+          }),
+          getMemoryContext({
+            workspaceId: input.workspaceId,
+            query:       input.goal,
+            layers:      ['brand', 'preference', 'reflection'],
+            agentScopes: ['clara', 'shared'],
+            limit:       8,
+          }),
+        ])
+      : ['', ''];
+
     // Run Lora
     console.log('🧠 Running LORA...');
     const loraOutput = await runLora({
@@ -93,7 +114,20 @@ export async function orchestrateContent(input: OrchestratorInput): Promise<Orch
       businessName,
       brandVoice,
       businessProfile: kb.businessProfile,
+      memoryContext: loraMemory,
     });
+
+    // Lora's strategic decisions become durable strategic memory
+    if (input.workspaceId) {
+      extractFacts({
+        workspaceId: input.workspaceId,
+        agentScope:  'lora',
+        layer:       'strategic',
+        raw:         JSON.stringify({ goal: input.goal, platform: input.platform, strategy: loraOutput }),
+        sourceType:  'lora-strategy',
+        metadata:    { goal: input.goal, platform: input.platform },
+      });
+    }
 
     // Run Clara
     console.log('✍️  Running CLARA...');
@@ -103,6 +137,7 @@ export async function orchestrateContent(input: OrchestratorInput): Promise<Orch
       businessName,
       platform: input.platform,
       goal: input.goal,
+      memoryContext: claraMemory,
     });
 
     // Run Steve if image requested

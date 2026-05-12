@@ -7,6 +7,8 @@ export type ContentType = 'image' | 'video' | 'text';
 
 export interface OrchestratorInput {
   businessId?: string;
+  /** Workspace whose memory should be retrieved + appended. If absent, orchestration runs cold. */
+  workspaceId?: string;
   goal: string;
   platform: Platform;
   contentTypes: ContentType[];

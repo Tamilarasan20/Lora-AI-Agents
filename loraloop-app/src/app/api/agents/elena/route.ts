@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server';
 import { runElena, type ElenaInput, type AdNetwork, type CampaignObjective } from '@/lib/agents/elena';
 import { loadBrandContext } from '@/lib/agents/_loadBrand';
 import { meterIfAuthed } from '@/lib/withCredits';
+import { getCurrentUser } from '@/lib/supabase-server';
+import { getMemoryContext, extractFacts } from '@/lib/agents/_memoryContext';
 
 export const maxDuration = 60;
 
@@ -34,6 +36,17 @@ export async function POST(req: Request) {
     if (!metered.ok) return metered.response;
 
     const brand = await loadBrandContext(body.businessId);
+    const user = await getCurrentUser();
+
+    const memoryContext = user
+      ? await getMemoryContext({
+          workspaceId: user.id,
+          query:       `${body.product} ${body.objective} ${body.network} campaign`,
+          layers:      ['campaign', 'reflection', 'strategic'],
+          agentScopes: ['elena', 'nick', 'shared'],
+          limit:       10,
+        })
+      : '';
 
     const result = await runElena({
       product: body.product,
@@ -45,7 +58,29 @@ export async function POST(req: Request) {
       durationDays: body.durationDays,
       audienceHints: body.audienceHints,
       currentPerformance: body.currentPerformance,
+      memoryContext,
     });
+
+    if (user) {
+      extractFacts({
+        workspaceId: user.id,
+        agentScope:  'elena',
+        layer:       'campaign',
+        raw:         JSON.stringify({
+          campaignName: result.campaignName,
+          network:      result.network,
+          audiences:    result.audiences,
+          kpiTargets:   result.kpiTargets,
+          forecast:     result.forecastedMetrics,
+        }),
+        sourceType:  'elena-campaign-plan',
+        metadata:    {
+          campaignName: result.campaignName,
+          network:      body.network,
+          objective:    body.objective,
+        },
+      });
+    }
 
     return NextResponse.json({ agent: 'elena', remaining: metered.remaining, result });
   } catch (error) {

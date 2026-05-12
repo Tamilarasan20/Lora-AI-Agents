@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { OrchestratorInput } from '@/types/agents';
 import { orchestrateContent, prettyPrintOutput } from '@/lib/agents/orchestrator';
+import { getCurrentUser } from '@/lib/supabase-server';
 
 export const maxDuration = 120;
 
@@ -24,9 +25,16 @@ export async function POST(req: Request) {
       contentTypes: body.contentTypes,
     });
 
+    // Resolve workspaceId from the authenticated user so the orchestrator can
+    // pull strategic + brand + reflection memory for Lora and Clara. If the
+    // caller is anonymous (e.g. mock-data demo), orchestration still runs
+    // cold without memory.
+    const user = await getCurrentUser();
+
     // Run orchestration
     const result = await orchestrateContent({
       businessId: body.businessId,
+      workspaceId: user?.id,
       goal: body.goal,
       platform: body.platform,
       contentTypes: body.contentTypes,

@@ -18,6 +18,8 @@ export interface SophieInput {
   targetKeywords?: string[];
   audience?: string;
   existingContent?: string;
+  /** Pre-fetched memory context (brand + strategic + reflection facts). */
+  memoryContext?: string;
 }
 
 export interface SophieOutput {
@@ -46,12 +48,13 @@ export interface SophieOutput {
 }
 
 export async function runSophie(input: SophieInput): Promise<SophieOutput> {
-  const { topic, businessName, brandVoice, platform = 'blog', targetKeywords = [], audience, existingContent } = input;
+  const { topic, businessName, brandVoice, platform = 'blog', targetKeywords = [], audience, existingContent, memoryContext } = input;
 
   const brandContext = buildBrandContext(brandVoice, businessName);
+  const memoryBlock = memoryContext ? `\n${memoryContext}\n` : '';
 
   const prompt = `You are SOPHIE, an elite SEO + GEO (Generative Engine Optimisation) strategist for ${businessName}.
-
+${memoryBlock}
 Brand: ${brandContext}
 
 Topic: ${topic}

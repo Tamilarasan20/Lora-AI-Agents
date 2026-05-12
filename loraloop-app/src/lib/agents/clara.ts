@@ -12,15 +12,18 @@ export interface ClaraInput {
   businessName: string;
   platform: Platform;
   goal: string;
+  /** Pre-fetched memory context (brand + preference + reflection facts). */
+  memoryContext?: string;
 }
 
 export async function runClara(input: ClaraInput): Promise<ClaraOutput> {
-  const { loraStrategy, brandVoice, businessName, platform, goal } = input;
+  const { loraStrategy, brandVoice, businessName, platform, goal, memoryContext } = input;
 
   const brandContext = buildBrandContext(brandVoice, businessName);
+  const memoryBlock = memoryContext ? `\n${memoryContext}\n` : '';
 
   const prompt = `You are CLARA, Chief Content Officer for ${businessName}.
-
+${memoryBlock}
 Brand: ${brandContext}
 
 Strategy from Lora:

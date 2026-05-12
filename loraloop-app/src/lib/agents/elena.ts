@@ -31,6 +31,8 @@ export interface ElenaInput {
     cpa?: number;
     roas?: number;
   };
+  /** Pre-fetched memory context (campaign + reflection + strategic facts). */
+  memoryContext?: string;
 }
 
 export interface ElenaAdCreative {
@@ -86,10 +88,12 @@ export async function runElena(input: ElenaInput): Promise<ElenaOutput> {
     product, businessName, brandVoice,
     network, objective, budgetUsdPerDay,
     durationDays = 14, audienceHints, currentPerformance,
+    memoryContext,
   } = input;
 
   const brandContext = buildBrandContext(brandVoice, businessName);
   const totalBudget = budgetUsdPerDay * durationDays;
+  const memoryBlock = memoryContext ? `\n${memoryContext}\n` : '';
 
   const perfBlock = currentPerformance
     ? `Current campaign performance (optimise based on this):
@@ -97,7 +101,7 @@ ${Object.entries(currentPerformance).map(([k, v]) => `  - ${k}: ${v}`).join('\n'
     : 'No prior campaign data — this is a new campaign launch.';
 
   const prompt = `You are ELENA, a performance marketing director for ${businessName}.
-
+${memoryBlock}
 Brand: ${brandContext}
 
 Campaign brief:
