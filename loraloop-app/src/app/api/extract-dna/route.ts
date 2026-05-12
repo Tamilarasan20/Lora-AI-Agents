@@ -1167,69 +1167,192 @@ export async function POST(req: Request) {
       if (browser) { try { await browser.close(); } catch { /* */ } browser = null; }
 
       try {
-        const res = await fetch(url, {
-          headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", "Accept": "text/html,application/xhtml+xml" },
-        });
-        const html = await res.text();
+        const origin = new URL(url).origin;
+        const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+        const hdrs = { "User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9" };
+
+        // ── helper: scrape all images from an HTML string ──
+        const scrapeHtmlImages = (html: string, base: string): string[] => {
+          const found: string[] = [];
+          const resolve = (u: string) => {
+            try { return new URL(u, base).href; } catch { return u; }
+          };
+
+          // All img tag lazy-load attributes
+          const imgTagRe = /<img[^>]+>/gi;
+          let m: RegExpExecArray | null;
+          const lazyAttrs = ["src","data-src","data-lazy-src","data-original","data-image","data-bg","data-full","data-hi-res","data-large-file","data-orig-file","data-zoom-src","data-retina-src","data-highres"];
+          while ((m = imgTagRe.exec(html)) !== null) {
+            for (const attr of lazyAttrs) {
+              const vm = m[0].match(new RegExp(`\\b${attr}=["']([^"']+)["']`, "i"));
+              if (vm?.[1]) found.push(resolve(vm[1]));
+            }
+            // srcset
+            const ssm = m[0].match(/srcset=["']([^"']+)["']/i);
+            if (ssm) ssm[1].split(",").forEach(e => { const u = e.trim().split(/\s+/)[0]; if (u) found.push(resolve(u)); });
+          }
+
+          // <source srcset> inside <picture>
+          const srcRe = /<source[^>]+>/gi;
+          while ((m = srcRe.exec(html)) !== null) {
+            const ssm = m[0].match(/srcset=["']([^"']+)["']/i);
+            if (ssm) ssm[1].split(",").forEach(e => { const u = e.trim().split(/\s+/)[0]; if (u) found.push(resolve(u)); });
+          }
+
+          // OG / meta images (highest quality)
+          const metaRe = /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image|og:image:secure_url)[^>]+content=["']([^"']+)["']/gi;
+          while ((m = metaRe.exec(html)) !== null) found.push(resolve(m[1]));
+          const metaRe2 = /<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)[^>]*>/gi;
+          while ((m = metaRe2.exec(html)) !== null) found.push(resolve(m[1]));
+
+          // link[rel=preload as=image]
+          const preloadRe = /<link[^>]+rel=["']preload["'][^>]+as=["']image["'][^>]+href=["']([^"']+)["']/gi;
+          while ((m = preloadRe.exec(html)) !== null) found.push(resolve(m[1]));
+
+          // <a href> pointing to images
+          const aRe = /<a[^>]+href=["']([^"']+\.(?:jpg|jpeg|png|webp|avif|gif)(?:\?[^"']*)?)["']/gi;
+          while ((m = aRe.exec(html)) !== null) found.push(resolve(m[1]));
+
+          // Inline style background-image
+          const bgRe = /background(?:-image)?:\s*url\(["']?(https?:\/\/[^"')]+)["']?\)/gi;
+          while ((m = bgRe.exec(html)) !== null) found.push(m[1]);
+
+          // Inline style background-image with relative URLs
+          const bgRelRe = /background(?:-image)?:\s*url\(["']?(\/[^"')]+\.(?:jpg|jpeg|png|webp|avif))["']?\)/gi;
+          while ((m = bgRelRe.exec(html)) !== null) found.push(resolve(m[1]));
+
+          // JSON-LD structured data
+          const jldRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+          while ((m = jldRe.exec(html)) !== null) {
+            try { extractImagesFromJson(JSON.parse(m[1]), found); } catch { /* skip */ }
+          }
+
+          // __NEXT_DATA__ / __NUXT__ JSON blobs
+          const nextRe = /__NEXT_DATA__\s*=\s*(\{[\s\S]{0,500000}?\});?\s*<\/script>/;
+          const nextM = html.match(nextRe);
+          if (nextM) { try { extractImagesFromJson(JSON.parse(nextM[1]), found); } catch { /* skip */ } }
+
+          // noscript fallback images
+          const nsRe = /<noscript[^>]*>([\s\S]*?)<\/noscript>/gi;
+          while ((m = nsRe.exec(html)) !== null) {
+            const inner = m[1];
+            const sm = inner.match(/src=["'](https?:\/\/[^"']+)["']/gi) || [];
+            sm.forEach(s => { const u = s.match(/src=["']([^"']+)["']/i)?.[1]; if (u) found.push(u); });
+          }
+
+          // Generic image URL patterns in script tags (JS variables, config objects)
+          const urlPattern = /["'`](https?:\/\/[^"'`\s]{10,}\.(?:jpg|jpeg|png|webp|avif)(?:\?[^"'`\s]*)?)["'`]/g;
+          let up: RegExpExecArray | null;
+          while ((up = urlPattern.exec(html)) !== null) found.push(up[1]);
+
+          return found;
+        };
+
+        // ── fetch helpers ──
+        const fetchHtml = async (u: string) => {
+          const r = await fetch(u, { headers: hdrs, signal: AbortSignal.timeout(12000) });
+          if (!r.ok) throw new Error(`${r.status}`);
+          return r.text();
+        };
+
+        // ── 1. Main page ──
+        const html = await fetchHtml(url);
 
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
         if (titleMatch) pageTitle = titleMatch[1].trim();
-
-        const metaMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
-        const metaDesc = metaMatch ? metaMatch[1] : "";
 
         const textContent = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
           .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ");
-        textSample = (metaDesc + " | " + textContent).slice(0, 5000);
+          .replace(/\s+/g, " ").trim();
+        const metaDescM = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i)
+          || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']/i);
+        const ogTitleM  = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+        textSample = [(ogTitleM?.[1] ?? ""), (metaDescM?.[1] ?? ""), textContent].filter(Boolean).join(" | ").slice(0, 5000);
 
-        // Extract all img src and srcset
-        const imgRegex = /<img[^>]+>/gi;
-        let imgTag;
-        while ((imgTag = imgRegex.exec(html)) !== null && extractedImages.length < 200) {
-          for (const attr of ["src", "data-src", "data-lazy-src", "data-original"]) {
-            const m = imgTag[0].match(new RegExp(`${attr}=["'](https?://[^"']+)["']`, "i"));
-            if (m && isUsefulImage(m[1])) extractedImages.push(m[1]);
+        const mainImages = scrapeHtmlImages(html, url);
+        extractedImages.push(...mainImages);
+        console.log(`[extract-dna] 🌐 HTTP main page: ${mainImages.length} raw images`);
+
+        // Logo
+        const logoM = html.match(/<img[^>]*(?:class|id|alt)=["'][^"']*logo[^"']*["'][^>]*src=["']([^"']+)["']/i)
+          || html.match(/<img[^>]*src=["']([^"']*logo[^"']*)["']/i)
+          || html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+        if (logoM) extractedLogo = logoM[1].startsWith("http") ? logoM[1] : new URL(logoM[1], url).href;
+
+        // Colors from CSS hex values
+        const colorRe = /#([0-9a-fA-F]{6})\b/g;
+        let cm: RegExpExecArray | null;
+        while ((cm = colorRe.exec(html)) !== null && extractedColors.length < 20) {
+          const hex = "#" + cm[1];
+          if (!["#ffffff","#000000","#ffffffff"].includes(hex.toLowerCase())) extractedColors.push(hex);
+        }
+
+        // ── 2. Internal nav links ──
+        const navLinkRe = /href=["'](\/[a-zA-Z0-9/_-]{2,60})["']/g;
+        const seenPaths = new Set<string>(["/"]);
+        const internalLinks: string[] = [];
+        const skipWords = ["login","signin","signup","cart","checkout","account","privacy","terms","cookie","legal","cdn-cgi","wp-admin","logout","password"];
+        let lm: RegExpExecArray | null;
+        while ((lm = navLinkRe.exec(html)) !== null && internalLinks.length < 10) {
+          const p = lm[1];
+          if (!seenPaths.has(p) && !skipWords.some(s => p.includes(s))) {
+            seenPaths.add(p);
+            internalLinks.push(origin + p);
           }
-          const srcsetM = imgTag[0].match(/srcset=["']([^"']+)["']/i);
-          if (srcsetM) {
-            srcsetM[1].split(",").forEach((entry) => {
-              const u = entry.trim().split(/\s+/)[0];
-              if (u.startsWith("http") && isUsefulImage(u)) extractedImages.push(u);
-            });
-          }
         }
 
-        // Background images from inline styles
-        const bgRegex = /background(?:-image)?:\s*url\(["']?(https?:\/\/[^"')]+)["']?\)/gi;
-        let match;
-        while ((match = bgRegex.exec(html)) !== null && extractedImages.length < 250) {
-          if (isUsefulImage(match[1])) extractedImages.push(match[1]);
+        // ── 3. CSS files for background-image URLs ──
+        const cssLinkRe = /<link[^>]+rel=["']stylesheet["'][^>]+href=["']([^"']+)["']/gi;
+        const cssUrls: string[] = [];
+        while ((lm = cssLinkRe.exec(html)) !== null && cssUrls.length < 8) {
+          try { cssUrls.push(new URL(lm[1], url).href); } catch { /* skip */ }
         }
 
-        // JSON-LD
-        const jldRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-        let jldMatch;
-        while ((jldMatch = jldRegex.exec(html)) !== null) {
-          try {
-            const out: string[] = [];
-            extractImagesFromJson(JSON.parse(jldMatch[1]), out);
-            out.forEach(u => { if (isUsefulImage(u)) extractedImages.push(u); });
-          } catch { /* skip */ }
+        // ── Run sub-pages + CSS + e-commerce APIs in parallel ──
+        const [subResults, cssResults, ecomResults, sitemapUrls] = await Promise.all([
+          // Sub-pages
+          Promise.allSettled(internalLinks.slice(0, 8).map(async (link) => {
+            try {
+              const subHtml = await fetchHtml(link);
+              return scrapeHtmlImages(subHtml, link);
+            } catch { return [] as string[]; }
+          })),
+          // CSS files
+          Promise.allSettled(cssUrls.map(async (cssUrl) => {
+            try {
+              const r = await fetch(cssUrl, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(6000) });
+              if (!r.ok) return [] as string[];
+              const css = await r.text();
+              const imgs: string[] = [];
+              const bgr = /url\(["']?(https?:\/\/[^"')]+)["']?\)/g;
+              let bm: RegExpExecArray | null;
+              while ((bm = bgr.exec(css)) !== null) imgs.push(bm[1]);
+              return imgs;
+            } catch { return [] as string[]; }
+          })),
+          // E-commerce APIs
+          scrapeEcommerceApis(origin).catch(() => [] as string[]),
+          // Sitemap
+          fetchSitemapUrls(origin).catch(() => [] as string[]),
+        ]);
+
+        for (const r of subResults) if (r.status === "fulfilled") extractedImages.push(...r.value);
+        for (const r of cssResults)  if (r.status === "fulfilled") extractedImages.push(...r.value);
+        extractedImages.push(...ecomResults);
+
+        // Crawl up to 4 sitemap pages not already visited
+        const sitemapTargets = sitemapUrls.filter(u => !seenPaths.has(new URL(u).pathname)).slice(0, 4);
+        if (sitemapTargets.length > 0) {
+          const sitemapResults = await Promise.allSettled(sitemapTargets.map(async (link) => {
+            try { return scrapeHtmlImages(await fetchHtml(link), link); }
+            catch { return [] as string[]; }
+          }));
+          for (const r of sitemapResults) if (r.status === "fulfilled") extractedImages.push(...r.value);
         }
 
-        // Colors
-        const colorRegex = /#([0-9a-fA-F]{3,8})\b/g;
-        while ((match = colorRegex.exec(html)) !== null && extractedColors.length < 15) {
-          const hex = "#" + match[1];
-          if (hex.length === 4 || hex.length === 7) extractedColors.push(hex);
-        }
-
-        const logoMatch = html.match(/<img[^>]*(?:class|id|alt)=["'][^"']*logo[^"']*["'][^>]*src=["']([^"']+)["']/i)
-          || html.match(/<img[^>]*src=["']([^"']*logo[^"']*)["']/i);
-        if (logoMatch) extractedLogo = logoMatch[1];
+        console.log(`[extract-dna] 🌐 HTTP fallback total raw: ${extractedImages.length} images`);
 
       } catch (fbErr) {
         console.error("[extract-dna] HTTP fallback also failed:", fbErr);
