@@ -29,6 +29,7 @@ venv/
 .yarn/*
 **/.next/
 **/out/
+**/*.tsbuildinfo
 
 # Docker & Volumes
 postgres-volume/
