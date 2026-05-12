@@ -10,7 +10,7 @@ const PLANS = [
     key: 'SOLO',
     name: 'Solo',
     popular: false,
-    price: { monthly: 9, quarterly: 8, annual: 7 },
+    price: { monthly: 9, quarterly: 8, annual: 6 },
     credits: 100,
     seats: 2,
     workspaces: 1,
@@ -25,7 +25,7 @@ const PLANS = [
     key: 'PRO',
     name: 'Pro',
     popular: true,
-    price: { monthly: 29, quarterly: 26, annual: 23 },
+    price: { monthly: 29, quarterly: 25, annual: 20 },
     credits: 500,
     seats: 5,
     workspaces: 3,
@@ -40,7 +40,7 @@ const PLANS = [
     key: 'AGENCY',
     name: 'Agency',
     popular: false,
-    price: { monthly: 69, quarterly: 62, annual: 55 },
+    price: { monthly: 69, quarterly: 59, annual: 48 },
     credits: 1200,
     seats: 25,
     workspaces: 10,
@@ -55,7 +55,7 @@ const PLANS = [
     key: 'ENTERPRISE',
     name: 'Enterprise',
     popular: false,
-    price: { monthly: 169, quarterly: 152, annual: 135 },
+    price: { monthly: 169, quarterly: 144, annual: 118 },
     credits: 2500,
     seats: -1,
     workspaces: -1,
@@ -91,8 +91,8 @@ const INTERVAL_LABELS: Record<Interval, string> = {
 
 const INTERVAL_SAVINGS: Record<Interval, string | null> = {
   monthly:   null,
-  quarterly: 'Save ~10%',
-  annual:    'Save ~22%',
+  quarterly: 'Save 15%',
+  annual:    'Save 30%',
 };
 
 export default function PricingPage() {

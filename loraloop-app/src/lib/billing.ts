@@ -10,7 +10,7 @@ export const PLANS = {
   },
   SOLO: {
     name: 'Solo',
-    price: { monthly: 9, quarterly: 24, annual: 86 },
+    price: { monthly: 9, quarterly: 23, annual: 76 },
     credits: 100,
     seats: 2,
     workspaces: 1,
@@ -23,7 +23,7 @@ export const PLANS = {
   },
   PRO: {
     name: 'Pro',
-    price: { monthly: 29, quarterly: 78, annual: 278 },
+    price: { monthly: 29, quarterly: 74, annual: 244 },
     credits: 500,
     seats: 5,
     workspaces: 3,
@@ -36,7 +36,7 @@ export const PLANS = {
   },
   AGENCY: {
     name: 'Agency',
-    price: { monthly: 69, quarterly: 186, annual: 662 },
+    price: { monthly: 69, quarterly: 176, annual: 580 },
     credits: 1200,
     seats: 25,
     workspaces: 10,
@@ -49,7 +49,7 @@ export const PLANS = {
   },
   ENTERPRISE: {
     name: 'Enterprise',
-    price: { monthly: 169, quarterly: 456, annual: 1622 },
+    price: { monthly: 169, quarterly: 431, annual: 1420 },
     credits: 2500,
     seats: -1,
     workspaces: -1,
