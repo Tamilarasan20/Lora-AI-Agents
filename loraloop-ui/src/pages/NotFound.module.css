@@ -1,0 +1,12 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 12px;
+}
+
+.code { font-size: 72px; font-weight: 800; color: var(--border); }
+.msg { color: var(--text-muted); font-size: 16px; }
+.back { font-size: 14px; color: var(--accent-light); margin-top: 8px; }

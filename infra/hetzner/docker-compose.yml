@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ../../loraloop-py
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - loraloop
+
+  ui:
+    build:
+      context: ../../loraloop-ui
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    depends_on:
+      - api
+    networks:
+      - loraloop
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - ui
+    networks:
+      - loraloop
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    expose:
+      - "9090"
+    networks:
+      - loraloop
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  loraloop:
+    driver: bridge
