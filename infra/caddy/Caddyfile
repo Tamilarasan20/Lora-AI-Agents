@@ -1,0 +1,37 @@
+{
+	email admin@loraloop.ai
+	# Remove the next line in production to use Let's Encrypt
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+app.loraloop.ai {
+	# Serve the React SPA
+	handle {
+		reverse_proxy ui:80
+	}
+}
+
+api.loraloop.ai {
+	# FastAPI backend
+	reverse_proxy api:8000
+
+	# CORS pre-flight
+	@options method OPTIONS
+	handle @options {
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization"
+		respond 204
+	}
+
+	# Rate limit — 60 req/min per IP on /agents/* (requires Caddy rate-limit plugin)
+	# Uncomment if using xcaddy with rate-limit module:
+	# @agents path /agents/*
+	# rate_limit @agents {
+	#   zone agents_zone {
+	#     key {remote_host}
+	#     events 60
+	#     window 1m
+	#   }
+	# }
+}
