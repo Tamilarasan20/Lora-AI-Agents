@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
 import { LlmRouterService } from '../../llm-router/llm-router.service';
 import { NICK_SYSTEM_PROMPT } from './nick.prompts';
 import { buildNickTools } from './nick.tools';
+import { PlatformAnalyticsService } from '../../analytics/platform-analytics.service';
 
 export type ContentSource = 'organic-post' | 'ad' | 'video' | 'email' | 'blog';
 
@@ -46,6 +47,18 @@ export interface AnalyseRequest {
   periodLabel?: string;
 }
 
+export interface CollectAndAnalyseOptions {
+  platforms?: string[];
+  sinceDate?: Date;
+  goal?: string;
+  brandVoice?: string;
+}
+
+export interface CollectAndAnalyseResult {
+  itemsCollected: number;
+  analysis: AgentRunResult;
+}
+
 function compactItems(items: NickContentItem[]): string {
   return items
     .slice(0, 50)
@@ -62,11 +75,15 @@ function compactItems(items: NickContentItem[]): string {
 export class NickAgent extends BaseAgent {
   protected readonly agentName = 'Nick';
   protected readonly systemPrompt = NICK_SYSTEM_PROMPT;
-  protected readonly tools: ToolDefinition[] = buildNickTools();
+  protected readonly tools: ToolDefinition[];
 
-  constructor(router: LlmRouterService) {
+  constructor(
+    router: LlmRouterService,
+    @Optional() private readonly analytics?: PlatformAnalyticsService,
+  ) {
     super();
     this.router = router;
+    this.tools = buildNickTools(this.analytics);
   }
 
   /**
@@ -150,5 +167,37 @@ Return STRICT JSON:
       temperature: 0.4,
       maxTokens: 4096,
     });
+  }
+
+  /**
+   * Collect real analytics from all connected platforms for a user, then
+   * immediately run a full performance analysis.
+   *
+   * @returns The number of items fetched and the full analysis AgentRunResult.
+   */
+  async collectAndAnalyse(
+    userId: string,
+    businessName: string,
+    opts: CollectAndAnalyseOptions = {},
+  ): Promise<CollectAndAnalyseResult> {
+    if (!this.analytics) {
+      throw new Error('NickAgent: PlatformAnalyticsService is not available. Ensure AnalyticsModule is imported in AgentsModule.');
+    }
+
+    const items = await this.analytics.fetchAll({
+      userId,
+      platforms: opts.platforms,
+      sinceDate: opts.sinceDate,
+    });
+
+    const analysis = await this.analyse({
+      businessName,
+      items,
+      goal: opts.goal,
+      brandVoice: opts.brandVoice,
+      periodLabel: 'Last 30 days',
+    });
+
+    return { itemsCollected: items.length, analysis };
   }
 }

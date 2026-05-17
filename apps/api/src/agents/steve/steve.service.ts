@@ -18,6 +18,24 @@ export interface SteveGenerateInput {
   count?: number;
 }
 
+export interface SteveUgcInput {
+  userId: string;
+  businessId: string;
+  taskId: string;
+  campaignId?: string;
+  platform?: string;
+  brandContext?: BrandContext;
+  knowledgeBase?: {
+    brandVoice?: object;
+    businessProfile?: object;
+    targetAudience?: string;
+    visualStyle?: string;
+    colorPalette?: string[];
+  };
+  ugcConcept: string;
+  count?: number;
+}
+
 export interface SteveCarouselInput {
   userId: string;
   businessId: string;
@@ -190,7 +208,96 @@ export class SteveService {
     return generatedSlides;
   }
 
+  // ─── UGC image generation ────────────────────────────────────────────────────
+
+  async generateUgcImage(input: SteveUgcInput) {
+    const prompt = this.buildUgcPrompt(input);
+
+    this.gateway.emitToUser(input.userId, 'steve.ugc.started', {
+      taskId: input.taskId,
+      platform: input.platform,
+      message: `Steve is generating your UGC-style image…`,
+    });
+
+    const images = await this.imageGen.generateImage({
+      userId: input.userId,
+      businessId: input.businessId,
+      campaignId: input.campaignId,
+      taskId: input.taskId,
+      taskType: 'ugc_image',
+      prompt,
+      platform: input.platform,
+      dimensions: this.platformDimensions(input.platform),
+      count: input.count ?? 1,
+      brandContext: input.brandContext,
+    });
+
+    const assets = await Promise.all(
+      images.map((img) =>
+        this.prisma.creativeAsset.create({
+          data: {
+            userId: input.userId,
+            businessId: input.businessId,
+            campaignId: input.campaignId ?? null,
+            taskId: input.taskId,
+            createdByAgent: 'Steve',
+            assetType: 'ugc_image',
+            platform: input.platform ?? 'general',
+            dimensions: img.dimensions ?? '1080x1080',
+            assetUrl: img.assetUrl,
+            storageKey: img.storageKey,
+            storageProvider: 'cloudflare_r2',
+            mimeType: img.mimeType,
+            provider: img.provider,
+            model: img.model,
+            promptUsed: img.promptUsed,
+            status: 'draft',
+            approvalStatus: 'pending',
+            metadata: {
+              taskType: 'ugc_image',
+              ugcConcept: input.ugcConcept,
+              visualStyle: input.knowledgeBase?.visualStyle,
+              colorPalette: input.knowledgeBase?.colorPalette,
+              targetAudience: input.knowledgeBase?.targetAudience,
+            } as Prisma.InputJsonValue,
+          },
+        }),
+      ),
+    );
+
+    for (const asset of assets) {
+      this.gateway.emitCreativeAssetReady(input.userId, asset);
+    }
+
+    this.logger.log(`[Steve] Generated ${assets.length} UGC image(s) for task=${input.taskId}`);
+    return assets;
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+  private buildUgcPrompt(input: SteveUgcInput): string {
+    const kb = input.knowledgeBase;
+    const parts: string[] = [`UGC-style authentic lifestyle photo: ${input.ugcConcept}.`];
+
+    const visualStyle = kb?.visualStyle ?? input.brandContext?.visualStyle;
+    if (visualStyle) parts.push(`Style: ${visualStyle}.`);
+
+    const brandVoiceObj = kb?.brandVoice as Record<string, unknown> | undefined;
+    const tone = brandVoiceObj?.tone ?? brandVoiceObj?.mood;
+    if (tone) parts.push(`Mood: ${String(tone)}.`);
+
+    const colors = kb?.colorPalette ?? input.brandContext?.colors;
+    if (colors?.length) parts.push(`Colors: ${colors.join(', ')}.`);
+
+    const audience = kb?.targetAudience ?? input.brandContext?.audience;
+    if (audience) parts.push(`Target audience: ${audience}.`);
+
+    parts.push(
+      'Authentic, non-stock photo feel, real person, candid moment, shot on phone, natural lighting.',
+    );
+
+    return parts.join(' ');
+  }
 
   private mapCreativeTypeToTask(creativeType: string): ImageTaskType {
     const map: Record<string, ImageTaskType> = {
@@ -203,6 +310,7 @@ export class SteveService {
       instagram_post: 'instagram_post',
       linkedin_carousel: 'linkedin_carousel',
       tiktok_cover: 'tiktok_cover',
+      ugc_image: 'ugc_image',
     };
     return map[creativeType] ?? 'single_social_image';
   }

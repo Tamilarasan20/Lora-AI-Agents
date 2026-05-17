@@ -9,7 +9,8 @@ export type ImageTaskType =
   | 'campaign_visual'
   | 'tiktok_cover'
   | 'instagram_post'
-  | 'linkedin_carousel';
+  | 'linkedin_carousel'
+  | 'ugc_image';
 
 export interface BrandContext {
   brandName?: string;

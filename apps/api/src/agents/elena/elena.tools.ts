@@ -1,11 +1,11 @@
 import { ToolDefinition } from '../base-agent';
+import { AdNetworkService } from '../../ads/ad-network.service';
 
 /**
  * Elena's tools — UTM generation, budget validation, optimisation-rule
- * evaluation. These are deterministic helpers the agent can call to make
- * its outputs concrete and consistent.
+ * evaluation, and real ad network management (launch, pause, scale, sync).
  */
-export function buildElenaTools(): ToolDefinition[] {
+export function buildElenaTools(adNetwork?: AdNetworkService): ToolDefinition[] {
   return [
     {
       name: 'build_utm_template',
@@ -118,6 +118,124 @@ export function buildElenaTools(): ToolDefinition[] {
         }
 
         return { decisions, evaluatedAt: new Date().toISOString() };
+      },
+    },
+
+    // ── Real Ad Network Tools ─────────────────────────────────────────────────
+
+    {
+      name: 'launch_campaign',
+      description:
+        'Launch a campaign directly to Meta Ads, TikTok Ads, or LinkedIn Ads. Always launches in PAUSED state — confirm with Lora before activating. Returns the network campaign ID.',
+      inputSchema: {
+        properties: {
+          userId:       { type: 'string', description: 'User ID for fetching the ad account token' },
+          network:      { type: 'string', enum: ['meta', 'tiktok', 'linkedin'], description: 'Ad network to launch on' },
+          campaignJson: { type: 'object', description: 'Full campaign plan object from buildCampaign (must include campaignName, objective, dailyBudgetUsd)' },
+        },
+        required: ['userId', 'network', 'campaignJson'],
+      },
+      handler: async (input) => {
+        if (!adNetwork) return { error: 'AdNetworkService not available' };
+        const network = input.network as 'meta' | 'tiktok' | 'linkedin';
+        const plan = input.campaignJson as Record<string, unknown>;
+        const userId = input.userId as string;
+        switch (network) {
+          case 'meta':     return adNetwork.launchMetaCampaign(userId, plan);
+          case 'tiktok':   return adNetwork.launchTikTokCampaign(userId, plan);
+          case 'linkedin': return adNetwork.launchLinkedInCampaign(userId, plan);
+          default:         return { error: `Unsupported network: ${network}` };
+        }
+      },
+    },
+
+    {
+      name: 'get_campaign_performance',
+      description:
+        'Fetch live performance metrics for a campaign from the ad network. Returns impressions, clicks, spend, conversions, CTR, CPA, and ROAS.',
+      inputSchema: {
+        properties: {
+          userId:     { type: 'string' },
+          network:    { type: 'string', enum: ['meta', 'tiktok', 'linkedin'] },
+          campaignId: { type: 'string', description: 'Network-assigned campaign ID returned by launch_campaign' },
+        },
+        required: ['userId', 'network', 'campaignId'],
+      },
+      handler: async (input) => {
+        if (!adNetwork) return { error: 'AdNetworkService not available' };
+        const network = input.network as 'meta' | 'tiktok' | 'linkedin';
+        const userId = input.userId as string;
+        const campaignId = input.campaignId as string;
+        switch (network) {
+          case 'meta':     return adNetwork.getMetaPerformance(userId, campaignId);
+          case 'tiktok':   return adNetwork.getTikTokPerformance(userId, campaignId);
+          case 'linkedin':
+            return { error: 'LinkedIn performance sync not yet implemented — use Meta or TikTok' };
+          default:         return { error: `Unsupported network: ${network}` };
+        }
+      },
+    },
+
+    {
+      name: 'pause_campaign',
+      description:
+        'Pause a live campaign on the ad network immediately. Use when kill rules fire (CTR < 0.5% after $50 spend, or CPA > 2x target).',
+      inputSchema: {
+        properties: {
+          userId:     { type: 'string' },
+          network:    { type: 'string', enum: ['meta', 'tiktok', 'linkedin'] },
+          campaignId: { type: 'string', description: 'Network-assigned campaign ID to pause' },
+        },
+        required: ['userId', 'network', 'campaignId'],
+      },
+      handler: async (input) => {
+        if (!adNetwork) return { error: 'AdNetworkService not available' };
+        const network = input.network as 'meta' | 'tiktok' | 'linkedin';
+        const userId = input.userId as string;
+        const campaignId = input.campaignId as string;
+        switch (network) {
+          case 'meta':
+            await adNetwork.pauseMetaCampaign(userId, campaignId);
+            return { paused: true, campaignId, network, pausedAt: new Date().toISOString() };
+          case 'tiktok':
+          case 'linkedin':
+            return { error: `Pause not yet implemented for ${network} — pause manually in the ad manager` };
+          default:
+            return { error: `Unsupported network: ${network}` };
+        }
+      },
+    },
+
+    {
+      name: 'scale_budget',
+      description:
+        'Scale the daily budget of a Meta ad set. Use when scale rules fire (ROAS > target sustained 3+ days). Defaults to a +20% increase if newDailyBudgetUsd is omitted.',
+      inputSchema: {
+        properties: {
+          userId:             { type: 'string' },
+          network:            { type: 'string', enum: ['meta'], description: 'Currently only Meta supports budget scaling' },
+          adSetId:            { type: 'string', description: 'Meta ad set ID (not campaign ID) to update' },
+          newDailyBudgetUsd:  { type: 'number', description: 'New daily budget in USD. Omit to apply a default +20% increase based on current spend.' },
+          currentDailyBudgetUsd: { type: 'number', description: 'Current daily budget in USD — required when newDailyBudgetUsd is not provided' },
+        },
+        required: ['userId', 'network', 'adSetId'],
+      },
+      handler: async (input) => {
+        if (!adNetwork) return { error: 'AdNetworkService not available' };
+        const userId = input.userId as string;
+        const adSetId = input.adSetId as string;
+        let newBudgetUsd = input.newDailyBudgetUsd as number | undefined;
+
+        if (!newBudgetUsd) {
+          const current = input.currentDailyBudgetUsd as number | undefined;
+          if (!current) return { error: 'Provide either newDailyBudgetUsd or currentDailyBudgetUsd for +20% scaling' };
+          newBudgetUsd = current * 1.2;
+        }
+
+        // Meta API expects budget in cents
+        const newBudgetCents = Math.round(newBudgetUsd * 100);
+        await adNetwork.scaleMetaBudget(userId, adSetId, newBudgetCents);
+        return { scaled: true, adSetId, newDailyBudgetUsd: newBudgetUsd, newDailyBudgetCents: newBudgetCents, scaledAt: new Date().toISOString() };
       },
     },
   ];

@@ -1,4 +1,5 @@
 import { ToolDefinition } from '../base-agent';
+import { VideoGenerationService } from '../../media/video-generation/video-generation.service';
 
 const PLATFORM_SPECS: Record<string, { aspectRatio: string; minSec: number; maxSec: number; dimensions: string }> = {
   tiktok:    { aspectRatio: '9:16', minSec: 15, maxSec: 60,  dimensions: '1080x1920' },
@@ -9,9 +10,10 @@ const PLATFORM_SPECS: Record<string, { aspectRatio: string; minSec: number; maxS
 };
 
 /**
- * Theo's tools — platform spec lookup, shot timing validator, hook scorer.
+ * Theo's tools — platform spec lookup, shot timing validator, hook scorer,
+ * and real video generation via RunwayML, Luma, Pika, and Kling.
  */
-export function buildTheoTools(): ToolDefinition[] {
+export function buildTheoTools(videoGen?: VideoGenerationService): ToolDefinition[] {
   return [
     {
       name: 'get_platform_specs',
@@ -97,6 +99,49 @@ export function buildTheoTools(): ToolDefinition[] {
           strengths: wins,
           improvements: losses,
         };
+      },
+    },
+
+    {
+      name: 'generate_video',
+      description:
+        'Generate an actual video using AI video LLM models (RunwayML, Luma Dream Machine, Pika, Kling). Pass a detailed prompt and brand context to ensure brand voice alignment. Returns asset URL.',
+      inputSchema: {
+        properties: {
+          userId:       { type: 'string' },
+          businessId:   { type: 'string' },
+          taskId:       { type: 'string' },
+          prompt:       { type: 'string', description: 'Detailed scene description with style, mood, action, lighting' },
+          imageUrl:     { type: 'string', description: 'Optional: start video from this image (image-to-video)' },
+          aspectRatio:  { type: 'string', enum: ['9:16', '16:9', '1:1'] },
+          durationSec:  { type: 'number', description: '5 or 10 seconds' },
+          provider:     { type: 'string', enum: ['runway', 'luma', 'pika', 'kling'], description: 'Omit to auto-route.' },
+          brandContext: {
+            type: 'object',
+            properties: {
+              brandColors:    { type: 'array', items: { type: 'string' } },
+              visualStyle:    { type: 'string' },
+              tone:           { type: 'string' },
+              targetAudience: { type: 'string' },
+            },
+          },
+        },
+        required: ['userId', 'businessId', 'taskId', 'prompt'],
+      },
+      handler: async (input) => {
+        if (!videoGen) return { error: 'VideoGenerationService not available' };
+        const result = await videoGen.generateVideo({
+          userId:      input.userId as string,
+          businessId:  input.businessId as string,
+          taskId:      input.taskId as string,
+          prompt:      input.prompt as string,
+          imageUrl:    input.imageUrl as string | undefined,
+          aspectRatio: input.aspectRatio as any,
+          durationSec: input.durationSec as number | undefined,
+          provider:    input.provider as any,
+          brandContext: input.brandContext as any,
+        });
+        return result;
       },
     },
   ];

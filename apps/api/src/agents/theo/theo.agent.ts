@@ -3,6 +3,8 @@ import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
 import { LlmRouterService } from '../../llm-router/llm-router.service';
 import { THEO_SYSTEM_PROMPT } from './theo.prompts';
 import { buildTheoTools } from './theo.tools';
+import { VideoGenerationService } from '../../media/video-generation/video-generation.service';
+import { GeneratedVideoResult } from '../../media/video-generation/video-generation.types';
 
 export type VideoPlatform = 'tiktok' | 'instagram' | 'youtube' | 'linkedin' | 'twitter';
 export type VideoStyle = 'talking-head' | 'cinematic' | 'tutorial' | 'ugc' | 'animation' | 'product-demo';
@@ -36,11 +38,12 @@ export interface ScriptRewriteRequest {
 export class TheoAgent extends BaseAgent {
   protected readonly agentName = 'Theo';
   protected readonly systemPrompt = THEO_SYSTEM_PROMPT;
-  protected readonly tools: ToolDefinition[] = buildTheoTools();
+  protected readonly tools: ToolDefinition[];
 
-  constructor(router: LlmRouterService) {
+  constructor(router: LlmRouterService, private readonly videoGen?: VideoGenerationService) {
     super();
     this.router = router;
+    this.tools = buildTheoTools(this.videoGen);
   }
 
   /**
@@ -143,6 +146,76 @@ Cut every word that doesn't earn its place. Tighten the hook. Add [SHOT N] marke
       taskType: 'theo-rewrite-script',
       temperature: 0.5,
       maxTokens: 4096,
+    });
+  }
+
+  /**
+   * Generate a real video clip from a video plan.
+   * Builds a rich scene prompt from the plan's hook, shots, and visual descriptions,
+   * then calls the video generation service.
+   */
+  async generateVideo(
+    userId: string,
+    businessId: string,
+    taskId: string,
+    videoPlan: Record<string, unknown>,
+    brandContext?: {
+      brandColors?: string[];
+      visualStyle?: string;
+      tone?: string;
+      targetAudience?: string;
+    },
+  ): Promise<GeneratedVideoResult> {
+    if (!this.videoGen) {
+      throw new Error('VideoGenerationService not available — inject it via the constructor');
+    }
+
+    // Build a rich scene prompt from the video plan's structural elements
+    const parts: string[] = [];
+
+    if (videoPlan.hook) parts.push(`Hook: ${videoPlan.hook}`);
+
+    const shots = videoPlan.shots as Array<{
+      visual?: string;
+      voiceover?: string;
+      cameraMovement?: string;
+    }> | undefined;
+
+    if (shots?.length) {
+      const sceneDesc = shots
+        .slice(0, 3) // Use first 3 shots for the prompt
+        .map((s, i) => {
+          const parts: string[] = [];
+          if (s.visual) parts.push(s.visual);
+          if (s.cameraMovement) parts.push(`camera: ${s.cameraMovement}`);
+          if (s.voiceover) parts.push(`VO: "${s.voiceover}"`);
+          return `Shot ${i + 1}: ${parts.join(', ')}`;
+        })
+        .join('. ');
+      parts.push(sceneDesc);
+    }
+
+    if (videoPlan.musicMood) parts.push(`Mood: ${videoPlan.musicMood}`);
+
+    const prompt = parts.length > 0
+      ? parts.join('. ')
+      : String(videoPlan.title ?? 'Brand video clip');
+
+    const platform = videoPlan.platform as string | undefined;
+    const aspectRatio = platform === 'linkedin'
+      ? '1:1'
+      : platform === 'twitter'
+        ? '16:9'
+        : '9:16';
+
+    return this.videoGen.generateVideo({
+      userId,
+      businessId,
+      taskId,
+      prompt,
+      aspectRatio,
+      durationSec: Number(videoPlan.totalDurationSec ?? 10) <= 5 ? 5 : 10,
+      brandContext,
     });
   }
 }

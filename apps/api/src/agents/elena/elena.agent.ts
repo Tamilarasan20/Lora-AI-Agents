@@ -3,8 +3,10 @@ import { BaseAgent, AgentRunResult, ToolDefinition } from '../base-agent';
 import { LlmRouterService } from '../../llm-router/llm-router.service';
 import { ELENA_SYSTEM_PROMPT } from './elena.prompts';
 import { buildElenaTools } from './elena.tools';
+import { AdNetworkService, AdNetwork as AdNetworkType, AdCampaignResult, AdPerformanceMetrics } from '../../ads/ad-network.service';
 
 export type AdNetwork = 'meta' | 'google' | 'tiktok' | 'linkedin' | 'youtube';
+export { AdNetworkType };
 export type CampaignObjective = 'awareness' | 'traffic' | 'leads' | 'sales' | 'app-installs' | 'engagement';
 
 export interface CampaignPlanRequest {
@@ -53,11 +55,12 @@ export interface OptimisationRequest {
 export class ElenaAgent extends BaseAgent {
   protected readonly agentName = 'Elena';
   protected readonly systemPrompt = ELENA_SYSTEM_PROMPT;
-  protected readonly tools: ToolDefinition[] = buildElenaTools();
+  protected readonly tools: ToolDefinition[];
 
-  constructor(router: LlmRouterService) {
+  constructor(router: LlmRouterService, private readonly adNetwork?: AdNetworkService) {
     super();
     this.router = router;
+    this.tools = buildElenaTools(this.adNetwork);
   }
 
   /**
@@ -186,5 +189,50 @@ Return STRICT JSON:
       temperature: 0.4,
       maxTokens: 2048,
     });
+  }
+
+  /**
+   * Launch a campaign directly to the specified ad network.
+   * Campaigns always launch in PAUSED state for safety.
+   */
+  async launchCampaign(
+    userId: string,
+    network: AdNetworkType,
+    campaignPlan: Record<string, unknown>,
+  ): Promise<AdCampaignResult> {
+    if (!this.adNetwork) {
+      throw new Error('AdNetworkService not available — inject it via the constructor');
+    }
+    switch (network) {
+      case 'meta':
+        return this.adNetwork.launchMetaCampaign(userId, campaignPlan);
+      case 'tiktok':
+        return this.adNetwork.launchTikTokCampaign(userId, campaignPlan);
+      case 'linkedin':
+        return this.adNetwork.launchLinkedInCampaign(userId, campaignPlan);
+      default:
+        throw new Error(`Network ${network} is not supported for direct launch`);
+    }
+  }
+
+  /**
+   * Fetch live performance metrics for a campaign from the ad network.
+   */
+  async syncPerformance(
+    userId: string,
+    network: AdNetworkType,
+    campaignId: string,
+  ): Promise<AdPerformanceMetrics> {
+    if (!this.adNetwork) {
+      throw new Error('AdNetworkService not available — inject it via the constructor');
+    }
+    switch (network) {
+      case 'meta':
+        return this.adNetwork.getMetaPerformance(userId, campaignId);
+      case 'tiktok':
+        return this.adNetwork.getTikTokPerformance(userId, campaignId);
+      default:
+        throw new Error(`Performance sync for ${network} is not yet implemented`);
+    }
   }
 }

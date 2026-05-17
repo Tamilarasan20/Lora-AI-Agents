@@ -1,12 +1,16 @@
 import { ToolDefinition } from '../base-agent';
+import { PlatformAnalyticsService } from '../../analytics/platform-analytics.service';
 
 /**
  * Nick's tools — performance math the LLM should not do by hand.
  *
  * Phase 1: in-process calculators. Phase 2 wires in Meta/Google Ads/GA4/
  * platform analytics APIs behind the same tool interface.
+ *
+ * @param analytics Optional PlatformAnalyticsService injected at runtime.
+ *   When present, the fetch_platform_analytics tool is fully operational.
  */
-export function buildNickTools(): ToolDefinition[] {
+export function buildNickTools(analytics?: PlatformAnalyticsService): ToolDefinition[] {
   return [
     {
       name: 'compute_engagement_rate',
@@ -97,6 +101,41 @@ export function buildNickTools(): ToolDefinition[] {
         else verdict = 'underperforming';
 
         return { verdict, ratio_to_goal: Number((avg / goal).toFixed(2)) };
+      },
+    },
+
+    {
+      name: 'fetch_platform_analytics',
+      description:
+        'Fetch real analytics data from all connected social platforms (Instagram, TikTok, X, LinkedIn) for a user. Returns NickContentItem[] array ready for analysis.',
+      inputSchema: {
+        properties: {
+          userId: { type: 'string' },
+          platforms: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Filter to specific platforms. Omit for all connected.',
+          },
+          sinceDate: {
+            type: 'string',
+            description: 'ISO date string. Default: 30 days ago.',
+          },
+          limit: {
+            type: 'number',
+            description: 'Max posts per platform. Default 25.',
+          },
+        },
+        required: ['userId'],
+      },
+      handler: async (input) => {
+        if (!analytics) return { error: 'PlatformAnalyticsService not available' };
+        const items = await analytics.fetchAll({
+          userId: input.userId as string,
+          platforms: input.platforms as string[] | undefined,
+          sinceDate: input.sinceDate ? new Date(input.sinceDate as string) : undefined,
+          limit: input.limit as number | undefined,
+        });
+        return { count: items.length, items };
       },
     },
   ];

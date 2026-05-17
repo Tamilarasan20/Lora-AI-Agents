@@ -10,6 +10,9 @@ import { NickAgent } from './nick/nick.agent';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LlmRouterModule } from '../llm-router/llm-router.module';
+import { AnalyticsModule } from '../analytics/analytics.module';
+import { AdsModule } from '../ads/ads.module';
+import { VideoGenerationModule } from '../media/video-generation/video-generation.module';
 
 /**
  * Unified AgentsModule — owns every agent in the platform.
@@ -26,7 +29,7 @@ import { LlmRouterModule } from '../llm-router/llm-router.module';
  * circular module dependency.
  */
 @Module({
-  imports: [NotificationsModule, PrismaModule, LlmRouterModule],
+  imports: [NotificationsModule, PrismaModule, LlmRouterModule, AnalyticsModule, AdsModule, VideoGenerationModule],
   providers: [
     AgentsService,
     ClaraAgent,
