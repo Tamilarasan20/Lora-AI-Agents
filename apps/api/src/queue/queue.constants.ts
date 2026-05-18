@@ -7,6 +7,8 @@ export const QUEUE_NAMES = {
   REFRESH_TOKEN: 'refresh-token',
   SYNC_AUDIENCE_ANALYTICS: 'sync-audience-analytics',
   BRAND_ANALYZE: 'brand-analyze',
+  WEBHOOK_EVENTS: 'webhook-events',
+  INSTAGRAM_PUBLISH: 'instagram-publish',
   // AKE queues
   AKE_CRAWL: 'ake-crawl',
   AKE_EXTRACT: 'ake-extract',
@@ -43,6 +45,10 @@ export const JOB_NAMES = {
   PROCESS_UPLOADED_MEDIA: 'process-uploaded-media',
   // refresh-token queue
   REFRESH_PLATFORM_TOKEN: 'refresh-platform-token',
+  // webhook-events queue
+  PROCESS_WEBHOOK_EVENT: 'process-webhook-event',
+  // instagram-publish queue
+  INSTAGRAM_PUBLISH_NOW: 'instagram-publish-now',
   // sync-audience-analytics queue
   SYNC_PLATFORM_INSIGHTS: 'sync-platform-insights',
   // brand-analyze queue

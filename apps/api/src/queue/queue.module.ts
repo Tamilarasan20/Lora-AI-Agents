@@ -7,12 +7,22 @@ import { ProcessEngagementProcessor } from './processors/process-engagement.proc
 import { AgentTaskProcessor } from './processors/agent-task.processor';
 import { SyncAudienceAnalyticsProcessor } from './processors/sync-audience-analytics.processor';
 import { BrandAnalyzeProcessor } from './processors/brand-analyze.processor';
+import { WebhookEventsProcessor } from './processors/webhook-events.processor';
+import { TokenRefreshProcessor } from './processors/token-refresh.processor';
 import { AudienceSyncScheduler } from './audience-sync.scheduler';
 import { AgentsModule } from '../agents/agents.module';
 import { BrandModule } from '../brand/brand.module';
+// Use forwardRef to break the circular dep: MetaModule↔QueueModule
+import { MetaModule } from '../meta/meta.module';
+import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [AgentsModule, forwardRef(() => BrandModule)],
+  imports: [
+    AgentsModule,
+    forwardRef(() => BrandModule),
+    forwardRef(() => MetaModule),
+    PrismaModule,
+  ],
   providers: [
     QueueService,
     PublisherService,
@@ -22,6 +32,8 @@ import { BrandModule } from '../brand/brand.module';
     AgentTaskProcessor,
     SyncAudienceAnalyticsProcessor,
     BrandAnalyzeProcessor,
+    WebhookEventsProcessor,
+    TokenRefreshProcessor,
     AudienceSyncScheduler,
   ],
   exports: [QueueService, PublisherService, SyncAudienceAnalyticsProcessor],
@@ -34,6 +46,8 @@ export class QueueModule implements OnModuleInit {
     private readonly agentTaskProcessor: AgentTaskProcessor,
     private readonly syncAudienceAnalyticsProcessor: SyncAudienceAnalyticsProcessor,
     private readonly brandAnalyzeProcessor: BrandAnalyzeProcessor,
+    private readonly webhookEventsProcessor: WebhookEventsProcessor,
+    private readonly tokenRefreshProcessor: TokenRefreshProcessor,
   ) {}
 
   onModuleInit(): void {
@@ -43,5 +57,7 @@ export class QueueModule implements OnModuleInit {
     this.agentTaskProcessor.initialize();
     this.syncAudienceAnalyticsProcessor.initialize();
     this.brandAnalyzeProcessor.initialize();
+    this.webhookEventsProcessor.initialize();
+    this.tokenRefreshProcessor.initialize();
   }
 }
