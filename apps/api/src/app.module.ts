@@ -61,6 +61,9 @@ import { CreativeModule } from './creative/creative.module';
 // Phase 1 — Lora AI Marketing Team
 import { LoraModule } from './lora/lora.module';
 
+// Meta Instagram Integration
+import { MetaModule } from './meta/meta.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -140,6 +143,9 @@ import storageConfig from './config/storage.config';
 
     // Phase 1 — Lora AI Marketing Team
     LoraModule,
+
+    // Meta Instagram Integration
+    MetaModule,
 
   ],
   providers: [

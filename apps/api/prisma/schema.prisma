@@ -39,6 +39,7 @@ model User {
   updatedAt           DateTime   @updatedAt
 
   platformConnections    PlatformConnection[]
+  instagramAccounts      InstagramAccount[]
   content                Content[]
   scheduledPosts         ScheduledPost[]
   publishedPosts         PublishedPost[]
@@ -100,9 +101,11 @@ model PlatformConnection {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
-  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scheduledPosts   ScheduledPost[]
-  audienceInsights PlatformAudienceInsights?
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPosts    ScheduledPost[]
+  audienceInsights  PlatformAudienceInsights?
+  instagramAccounts InstagramAccount[]
+  tokenRefreshJobs  TokenRefreshJob[]
 
   @@unique([userId, platform, platformUserId])
   @@index([userId])
@@ -116,6 +119,100 @@ enum ConnectionStatus {
   EXPIRED
   REVOKED
   ERROR
+}
+
+// ============================================
+// INSTAGRAM BUSINESS ACCOUNTS
+// Stores IG Business Account data linked to a PlatformConnection (Meta token).
+// One Meta token can manage multiple Instagram Business Accounts via Pages.
+// ============================================
+
+model InstagramAccount {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformConnectionId String    @db.Uuid
+  userId               String    @db.Uuid
+  // Instagram Business Account
+  igAccountId          String    @db.VarChar(255)
+  username             String    @db.VarChar(255)
+  name                 String?   @db.VarChar(255)
+  profilePictureUrl    String?
+  biography            String?
+  website              String?
+  followerCount        Int       @default(0)
+  followingCount       Int       @default(0)
+  mediaCount           Int       @default(0)
+  // Linked Facebook Page
+  facebookPageId       String?   @db.VarChar(255)
+  facebookPageName     String?   @db.VarChar(255)
+  facebookPageToken    String?   // Encrypted page access token
+  isActive             Boolean   @default(true)
+  lastSyncedAt         DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  platformConnection PlatformConnection @relation(fields: [platformConnectionId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platformConnectionId, igAccountId])
+  @@index([userId])
+  @@index([igAccountId])
+  @@index([isActive])
+  @@map("instagram_accounts")
+}
+
+// ============================================
+// WEBHOOK EVENTS — inbound Meta/platform events
+// Stored immediately on receipt; processed async via queue.
+// ============================================
+
+model WebhookEvent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platform    String    @db.VarChar(50)
+  eventType   String    @db.VarChar(100)
+  externalId  String?   @db.VarChar(255)
+  rawPayload  Json
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?
+  retries     Int       @default(0)
+  userId      String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([platform])
+  @@index([processed])
+  @@index([eventType])
+  @@index([createdAt(sort: Desc)])
+  @@map("webhook_events")
+}
+
+// ============================================
+// TOKEN REFRESH JOBS — tracks scheduled token refreshes
+// Long-lived Meta tokens expire after ~60 days and need proactive refresh.
+// ============================================
+
+model TokenRefreshJob {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  platformConnectionId String    @db.Uuid
+  userId               String    @db.Uuid
+  status               String    @default("PENDING") @db.VarChar(50)
+  attempts             Int       @default(0)
+  maxAttempts          Int       @default(3)
+  lastAttemptAt        DateTime?
+  completedAt          DateTime?
+  error                String?
+  bullJobId            String?   @db.VarChar(255)
+  scheduledFor         DateTime
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  platformConnection PlatformConnection @relation(fields: [platformConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([platformConnectionId])
+  @@index([userId])
+  @@index([status])
+  @@index([scheduledFor])
+  @@map("token_refresh_jobs")
 }
 
 // ============================================

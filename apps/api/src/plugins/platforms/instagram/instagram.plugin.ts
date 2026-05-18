@@ -18,6 +18,8 @@ import {
   INSTAGRAM_TOKEN_URL,
   INSTAGRAM_GRAPH_URL,
   INSTAGRAM_SCOPES,
+  getMetaClientId,
+  getMetaClientSecret,
 } from './instagram.auth';
 
 // ─── Internal API response shapes ─────────────────────────────────────────────
@@ -173,8 +175,8 @@ export class InstagramPlugin extends BasePlatformPlugin {
    * 3. Resolve the Facebook user ID and then the Instagram Business Account ID.
    */
   async exchangeCode(code: string, redirectUri: string): Promise<OAuthTokens> {
-    const clientId = process.env.META_CLIENT_ID ?? '';
-    const clientSecret = process.env.META_CLIENT_SECRET ?? '';
+    const clientId = getMetaClientId();
+    const clientSecret = getMetaClientSecret();
 
     // Step 1: short-lived token
     const shortParams = new URLSearchParams({
