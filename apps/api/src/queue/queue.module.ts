@@ -9,11 +9,13 @@ import { SyncAudienceAnalyticsProcessor } from './processors/sync-audience-analy
 import { BrandAnalyzeProcessor } from './processors/brand-analyze.processor';
 import { WebhookEventsProcessor } from './processors/webhook-events.processor';
 import { TokenRefreshProcessor } from './processors/token-refresh.processor';
+import { FacebookPublishProcessor } from './processors/facebook-publish.processor';
 import { AudienceSyncScheduler } from './audience-sync.scheduler';
 import { AgentsModule } from '../agents/agents.module';
 import { BrandModule } from '../brand/brand.module';
 // Use forwardRef to break the circular dep: MetaModule↔QueueModule
 import { MetaModule } from '../meta/meta.module';
+import { FacebookModule } from '../facebook/facebook.module';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
@@ -21,6 +23,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     AgentsModule,
     forwardRef(() => BrandModule),
     forwardRef(() => MetaModule),
+    forwardRef(() => FacebookModule),
     PrismaModule,
   ],
   providers: [
@@ -34,6 +37,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     BrandAnalyzeProcessor,
     WebhookEventsProcessor,
     TokenRefreshProcessor,
+    FacebookPublishProcessor,
     AudienceSyncScheduler,
   ],
   exports: [QueueService, PublisherService, SyncAudienceAnalyticsProcessor],
@@ -48,6 +52,7 @@ export class QueueModule implements OnModuleInit {
     private readonly brandAnalyzeProcessor: BrandAnalyzeProcessor,
     private readonly webhookEventsProcessor: WebhookEventsProcessor,
     private readonly tokenRefreshProcessor: TokenRefreshProcessor,
+    private readonly facebookPublishProcessor: FacebookPublishProcessor,
   ) {}
 
   onModuleInit(): void {
@@ -59,5 +64,6 @@ export class QueueModule implements OnModuleInit {
     this.brandAnalyzeProcessor.initialize();
     this.webhookEventsProcessor.initialize();
     this.tokenRefreshProcessor.initialize();
+    this.facebookPublishProcessor.initialize();
   }
 }

@@ -21,6 +21,7 @@ export const QUEUE_NAMES = {
   LORA_REVIEW: 'lora-review',
   LORA_CALENDAR_SYNC: 'lora-calendar-sync',
   LORA_SOCIAL_PUBLISH: 'lora-social-publish',
+  FACEBOOK_PUBLISH: 'facebook-publish',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -65,6 +66,8 @@ export const JOB_NAMES = {
   LORA_REVIEW_OUTPUT: 'lora-review-output',
   LORA_SYNC_CALENDAR: 'lora-sync-calendar',
   LORA_PUBLISH_APPROVED: 'lora-publish-approved',
+  // facebook-publish queue
+  FACEBOOK_PUBLISH_POST: 'facebook-publish-post',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {

@@ -323,3 +323,292 @@ export async function waitForContainerReady(
   }
   throw new MetaApiError(0, undefined, `Container ${containerId} not ready after ${maxWaitMs}ms`, 'Timeout');
 }
+
+// ── Facebook Pages ─────────────────────────────────────────────────────────────
+
+export interface FbPageInfo {
+  id: string;
+  name: string;
+  category?: string;
+  access_token: string;
+  fan_count?: number;
+  followers_count?: number;
+  picture?: { data: { url: string } };
+}
+
+export async function getFbPages(accessToken: string): Promise<{ data: FbPageInfo[] }> {
+  const p = new URLSearchParams({
+    fields: 'id,name,category,access_token,fan_count,followers_count,picture',
+    access_token: accessToken,
+  });
+  return graphFetch<{ data: FbPageInfo[] }>(`/me/accounts?${p.toString()}`);
+}
+
+export async function publishFbTextPost(params: {
+  pageId: string;
+  message: string;
+  link?: string;
+  accessToken: string;
+}): Promise<{ id: string }> {
+  const body: Record<string, string> = {
+    message: params.message,
+    access_token: params.accessToken,
+  };
+  if (params.link) body.link = params.link;
+  return graphFetch<{ id: string }>(`/${params.pageId}/feed`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function publishFbPhotoPost(params: {
+  pageId: string;
+  imageUrl: string;
+  caption?: string;
+  accessToken: string;
+}): Promise<{ id: string; post_id?: string }> {
+  const body: Record<string, string | boolean> = {
+    url: params.imageUrl,
+    published: true,
+    access_token: params.accessToken,
+  };
+  if (params.caption) body.caption = params.caption;
+  return graphFetch<{ id: string; post_id?: string }>(`/${params.pageId}/photos`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function publishFbVideoPost(params: {
+  pageId: string;
+  videoUrl: string;
+  description?: string;
+  title?: string;
+  accessToken: string;
+}): Promise<{ id: string; video_id?: string }> {
+  const body: Record<string, string> = {
+    file_url: params.videoUrl,
+    access_token: params.accessToken,
+  };
+  if (params.description) body.description = params.description;
+  if (params.title) body.title = params.title;
+  return graphFetch<{ id: string; video_id?: string }>(`/${params.pageId}/videos`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function scheduleFbPost(params: {
+  pageId: string;
+  message: string;
+  scheduledPublishTime: number; // Unix timestamp
+  link?: string;
+  accessToken: string;
+}): Promise<{ id: string }> {
+  const body: Record<string, string | number | boolean> = {
+    message: params.message,
+    published: false,
+    scheduled_publish_time: params.scheduledPublishTime,
+    access_token: params.accessToken,
+  };
+  if (params.link) body.link = params.link as string;
+  return graphFetch<{ id: string }>(`/${params.pageId}/feed`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export interface FbPageInsights {
+  page_impressions?: number;
+  page_reach?: number;
+  page_engaged_users?: number;
+  page_fan_count?: number;
+  page_post_engagements?: number;
+  page_views_total?: number;
+}
+
+export async function getFbPageInsights(
+  pageId: string,
+  accessToken: string,
+  since?: Date,
+  until?: Date,
+): Promise<FbPageInsights> {
+  const metrics = [
+    'page_impressions',
+    'page_reach',
+    'page_engaged_users',
+    'page_fan_count',
+    'page_post_engagements',
+    'page_views_total',
+  ];
+  const p = new URLSearchParams({
+    metric: metrics.join(','),
+    period: 'day',
+    access_token: accessToken,
+  });
+  if (since) p.set('since', Math.floor(since.getTime() / 1000).toString());
+  if (until) p.set('until', Math.floor(until.getTime() / 1000).toString());
+
+  const res = await graphFetch<{ data: Array<{ name: string; values: Array<{ value: number }> }> }>(
+    `/${pageId}/insights?${p.toString()}`,
+  );
+
+  const insights: FbPageInsights = {};
+  for (const metric of res.data) {
+    const latest = metric.values[metric.values.length - 1];
+    if (latest) (insights as any)[metric.name] = latest.value;
+  }
+  return insights;
+}
+
+// ── Meta Marketing API (Ads) ──────────────────────────────────────────────────
+
+export interface FbAdAccount {
+  id: string;
+  name: string;
+  currency: string;
+  timezone_name: string;
+  account_status: number;
+}
+
+export async function getAdAccounts(accessToken: string): Promise<{ data: FbAdAccount[] }> {
+  const p = new URLSearchParams({
+    fields: 'id,name,currency,timezone_name,account_status',
+    access_token: accessToken,
+  });
+  return graphFetch<{ data: FbAdAccount[] }>(`/me/adaccounts?${p.toString()}`);
+}
+
+export interface FbCampaign {
+  id: string;
+  name: string;
+  objective: string;
+  status: string;
+  daily_budget?: string;
+  lifetime_budget?: string;
+  start_time?: string;
+  stop_time?: string;
+}
+
+export async function getCampaigns(adAccountId: string, accessToken: string): Promise<{ data: FbCampaign[] }> {
+  const p = new URLSearchParams({
+    fields: 'id,name,objective,status,daily_budget,lifetime_budget,start_time,stop_time',
+    access_token: accessToken,
+  });
+  return graphFetch<{ data: FbCampaign[] }>(`/act_${adAccountId}/campaigns?${p.toString()}`);
+}
+
+export async function createCampaign(params: {
+  adAccountId: string;
+  name: string;
+  objective: string;
+  status?: string;
+  dailyBudget?: number;
+  accessToken: string;
+}): Promise<{ id: string }> {
+  const body: Record<string, string | number> = {
+    name: params.name,
+    objective: params.objective,
+    status: params.status ?? 'PAUSED',
+    access_token: params.accessToken,
+  };
+  if (params.dailyBudget) body.daily_budget = params.dailyBudget * 100; // cents
+  return graphFetch<{ id: string }>(`/act_${params.adAccountId}/campaigns`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateCampaignStatus(params: {
+  campaignId: string;
+  status: 'ACTIVE' | 'PAUSED' | 'DELETED' | 'ARCHIVED';
+  accessToken: string;
+}): Promise<{ success: boolean }> {
+  return graphFetch<{ success: boolean }>(`/${params.campaignId}`, {
+    method: 'POST',
+    body: JSON.stringify({ status: params.status, access_token: params.accessToken }),
+  });
+}
+
+export interface FbAdSet {
+  id: string;
+  name: string;
+  status: string;
+  daily_budget?: string;
+  bid_amount?: string;
+  targeting?: Record<string, unknown>;
+  start_time?: string;
+  end_time?: string;
+}
+
+export async function getAdSets(
+  adAccountId: string,
+  accessToken: string,
+  campaignId?: string,
+): Promise<{ data: FbAdSet[] }> {
+  const p = new URLSearchParams({
+    fields: 'id,name,status,daily_budget,bid_amount,targeting,start_time,end_time',
+    access_token: accessToken,
+  });
+  if (campaignId) p.set('campaign_id', campaignId);
+  return graphFetch<{ data: FbAdSet[] }>(`/act_${adAccountId}/adsets?${p.toString()}`);
+}
+
+export interface FbAd {
+  id: string;
+  name: string;
+  status: string;
+  creative?: Record<string, unknown>;
+}
+
+export async function getAds(
+  adAccountId: string,
+  accessToken: string,
+  adSetId?: string,
+): Promise<{ data: FbAd[] }> {
+  const p = new URLSearchParams({
+    fields: 'id,name,status,creative',
+    access_token: accessToken,
+  });
+  if (adSetId) p.set('adset_id', adSetId);
+  return graphFetch<{ data: FbAd[] }>(`/act_${adAccountId}/ads?${p.toString()}`);
+}
+
+export interface FbInsight {
+  impressions: string;
+  clicks: string;
+  spend: string;
+  reach: string;
+  cpm?: string;
+  cpc?: string;
+  ctr?: string;
+  actions?: Array<{ action_type: string; value: string }>;
+  date_start: string;
+  date_stop: string;
+}
+
+export async function getAdInsights(params: {
+  adAccountId: string;
+  level: 'account' | 'campaign' | 'adset' | 'ad';
+  datePreset?: string;
+  since?: string;
+  until?: string;
+  entityId?: string;
+  accessToken: string;
+}): Promise<{ data: FbInsight[] }> {
+  const p = new URLSearchParams({
+    fields: 'impressions,clicks,spend,reach,cpm,cpc,ctr,actions',
+    level: params.level,
+    access_token: params.accessToken,
+  });
+  if (params.datePreset) p.set('date_preset', params.datePreset);
+  if (params.since && params.until) {
+    p.set('time_range', JSON.stringify({ since: params.since, until: params.until }));
+  }
+
+  const path = params.entityId
+    ? `/${params.entityId}/insights?${p.toString()}`
+    : `/act_${params.adAccountId}/insights?${p.toString()}`;
+
+  return graphFetch<{ data: FbInsight[] }>(path);
+}

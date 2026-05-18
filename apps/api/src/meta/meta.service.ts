@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../encryption/encryption.service';
@@ -15,6 +15,8 @@ import {
   MetaApiError,
   META_API_VERSION,
 } from './meta-graph.client';
+import { FacebookPageService } from '../facebook/facebook-page.service';
+import { MetaAdsService } from '../meta-ads/meta-ads.service';
 
 export const META_SCOPES = [
   'instagram_basic',
@@ -62,6 +64,10 @@ export class MetaService {
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly queue: QueueService,
+    @Inject(forwardRef(() => FacebookPageService))
+    private readonly facebookPageService: FacebookPageService,
+    @Inject(forwardRef(() => MetaAdsService))
+    private readonly metaAdsService: MetaAdsService,
   ) {}
 
   // ── OAuth URL ─────────────────────────────────────────────────────────────
@@ -203,6 +209,16 @@ export class MetaService {
 
     // 6. Schedule token refresh 50 days from now (before 60-day expiry)
     await this.scheduleTokenRefresh(connection.id, userId, expiresAt);
+
+    // 7. Sync Facebook Pages
+    await this.facebookPageService.syncPagesForConnection(connection.id, userId, longToken.access_token).catch((e) =>
+      this.logger.warn(`FB page sync failed: ${e.message}`),
+    );
+
+    // 8. Sync Ad Accounts
+    await this.metaAdsService.syncAdAccounts(userId, longToken.access_token).catch((e) =>
+      this.logger.warn(`Ad account sync failed: ${e.message}`),
+    );
 
     this.logger.log(`Meta OAuth complete: connection ${connection.id}, ${igAccounts.length} IG accounts`);
 

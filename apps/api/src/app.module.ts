@@ -64,6 +64,10 @@ import { LoraModule } from './lora/lora.module';
 // Meta Instagram Integration
 import { MetaModule } from './meta/meta.module';
 
+// Facebook Pages + Meta Ads
+import { FacebookModule } from './facebook/facebook.module';
+import { MetaAdsModule } from './meta-ads/meta-ads.module';
+
 // Guards
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
@@ -146,6 +150,10 @@ import storageConfig from './config/storage.config';
 
     // Meta Instagram Integration
     MetaModule,
+
+    // Facebook Pages + Meta Ads
+    FacebookModule,
+    MetaAdsModule,
 
   ],
   providers: [
